@@ -1,0 +1,13 @@
+# 密钥与本地环境（切勿提交）
+.env
+*.local
+
+# Python 缓存
+__pycache__/
+*.pyc
+
+# 本地备份
+*.bak
+
+# WorkBuddy 内部目录（记忆/配置），不进部署仓库
+.workbuddy/

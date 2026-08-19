@@ -1,0 +1,20 @@
+# 创作雷达 · Render 部署配置（Blueprint）
+# 用法：把本仓库推到 GitHub → Render 后台 New + Web Service → 连仓库 → Render 自动读取本文件。
+# 4 个密钥请在 Render 后台的 Environment 里手动添加（不要写进本文件 / 仓库）：
+#   OPENROUTER_API_KEY=sk-or-...
+#   OPENROUTER_MODEL=google/gemma-4-26b-a4b-it:free
+#   XHS_PROVIDER=tavily
+#   TAVILY_API_KEY=tvly-...
+
+services:
+  - type: web
+    name: chuangzuo-radar
+    runtime: python
+    plan: free
+    region: oregon
+    buildCommand: pip install -r requirements.txt
+    startCommand: python server.py
+    envVars:
+      - key: PYTHON_VERSION
+        value: "3.11"
+      # 注意：PORT 由 Render 自动注入，server.py 已读取，无需在此写死。
