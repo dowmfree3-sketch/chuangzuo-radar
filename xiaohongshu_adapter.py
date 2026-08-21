@@ -196,8 +196,11 @@ def _enrich_titles(items, query):
         real = _fetch_xhs_title(it.get("url"))
         if real:
             it["title"] = real
+            it.pop("_no_real_title", None)
         else:
-            it["title"] = ("「%s」相关视频笔记" % q) if q else "小红书视频笔记"
+            # 抓不到真实标题：标记丢弃，绝不用「检索词相关视频笔记」冒充具体笔记，
+            # 避免把无关热门页包装成相关结果（符合「绝不 Mock / 诚实」原则）。
+            it["_no_real_title"] = True
 
     with ThreadPoolExecutor(max_workers=min(6, len(targets))) as ex:
         list(ex.map(_fill, targets))
@@ -535,6 +538,9 @@ def search_videos(query, limit=15):
         vis = [u for u in (_normalize(it) for it in _extract_items(raw))
                if u.get("type") == "video"]
         _enrich_titles(vis, query)
+        vis = [u for u in vis if not u.get("_no_real_title")]
+        for u in vis:
+            u.pop("_no_real_title", None)
         return vis
 
     # 免费检索源：配置项优先，失败/空则自动回退
@@ -556,9 +562,14 @@ def search_videos(query, limit=15):
                 # 先抓真实笔记标题（DDG 锚点文本是站点名，须取页面 <title>），
                 # 再用真实标题做相关性闸门，避免站点级噪声描述误命中。
                 _enrich_titles(vis, query)
+                # 丢弃无真实标题的条目（如 DDG 返回的无关热门页抓不到标题），
+                # 再用真实标题做相关性闸门，避免无关内容冒充相关结果。
+                vis = [u for u in vis if not u.get("_no_real_title")]
                 vis = [u for u in vis if _relevant_to_query(u, query)]
                 if vis:
                     LAST_SOURCE = p
+                    for u in vis:
+                        u.pop("_no_real_title", None)
                     return vis
         except XHSSourceUnavailable as e:
             last_err = e
