@@ -294,13 +294,17 @@ def handle_search(data):
     candidates = []
     seen = set()
     source = None
+    src_unavailable = False
     for q in eff_queries:
         try:
             items = xhs.search_videos(q, limit=15)
             source = xhs.LAST_SOURCE
         except xhs.XHSSourceUnavailable as e:
-            # 数据源未接入：如实上报，绝不以 Mock 冒充
-            return {"results": [], "code": "xhs_source_unavailable", "realtime": False, "note": str(e)}
+            # 单个检索词的数据源异常：跳过该词继续其他词；
+            # 只有全部词都失败才如实上报，绝不以 Mock 冒充。
+            src_unavailable = True
+            log("SEARCH SRC UNAVAILABLE", str(e)[:120])
+            continue
         except Exception as e:
             log("SEARCH ERROR", str(e))
             continue
@@ -314,6 +318,10 @@ def handle_search(data):
 
     log("VIDEO FILTER COUNT", str(len(candidates)))
     if not candidates:
+        if src_unavailable:
+            return {"results": [], "code": "xhs_source_unavailable", "realtime": False,
+                    "note": "所有检索词的小红书视频数据源当前都不可用（Tavily 免费层可能限流，或暂未收录该主题）。可稍后重试，"
+                            "或接入 XHS_PROVIDER=rest 并配置 XHS_REST_BASE 指向合规的小红书内容接口以稳定检索。"}
         return {"results": [], "code": "no_results", "realtime": True, "source": source or "unknown"}
     return {"results": candidates, "code": "ok", "realtime": True, "source": source or "unknown"}
 

@@ -46,6 +46,7 @@ import os
 import re
 import json
 import html
+import time
 import urllib.request
 import urllib.parse
 import urllib.error
@@ -242,19 +243,32 @@ def _provider_tavily(query, limit):
         "include_answer": False,
         "include_raw_content": False,
     }
-    try:
-        req = urllib.request.Request(
-            "https://api.tavily.com/search",
-            data=json.dumps(payload).encode("utf-8"),
-            headers={"Content-Type": "application/json"},
-            method="POST",
-        )
-        with urllib.request.urlopen(req, timeout=20) as resp:
-            data = json.loads(resp.read().decode("utf-8"))
-    except urllib.error.HTTPError as e:
-        raise XHSSourceUnavailable("Tavily 请求失败（HTTP %s）" % e.code)
-    except Exception as e:
-        raise XHSSourceUnavailable("Tavily 暂时不可用：%s" % e)
+    last_err = None
+    data = None
+    for attempt in range(2):
+        try:
+            req = urllib.request.Request(
+                "https://api.tavily.com/search",
+                data=json.dumps(payload).encode("utf-8"),
+                headers={"Content-Type": "application/json"},
+                method="POST",
+            )
+            with urllib.request.urlopen(req, timeout=20) as resp:
+                data = json.loads(resp.read().decode("utf-8"))
+            last_err = None
+            break
+        except urllib.error.HTTPError as e:
+            last_err = "Tavily 请求失败（HTTP %s）" % e.code
+            if e.code == 429:
+                time.sleep(2)
+                continue
+            raise XHSSourceUnavailable(last_err)
+        except Exception as e:
+            last_err = "Tavily 暂时不可用：%s" % e
+            time.sleep(1)
+            continue
+    if last_err:
+        raise XHSSourceUnavailable(last_err)
 
     raw_items = data.get("results") or []
     out = []
