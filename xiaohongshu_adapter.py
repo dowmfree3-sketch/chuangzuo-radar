@@ -10,9 +10,12 @@
       type:"video", publishedAt, likes, collects, comments,
       videoUrl, description
     }
-- 双重视频过滤：
-    1) 数据层：只保留 type == "video"
+- 三重视频过滤（规避「不存在 / 虚假」）：
+    1) 数据层：只保留真实笔记页 URL（/explore/ 或 /discovery/item/）且 type == "video"
     2) 规则层：标题/描述明显为「图文 / 图片 / 纯文字」且无视频信号时丢弃
+    3) 活体核验层：对每个候选真实抓取笔记页，从小红书 SSR 状态解析
+       noteCard.type 确认「真实存在且确为视频」；已删除死链 / 图文冒充
+       一律丢弃。抓取失败（反爬/网络）则保守保留，不误杀真实视频。
 - 可插拔 provider：通过环境变量 XHS_PROVIDER 指定（默认 "none"）。
   - "none"    -> 未接入真实数据源，如实抛出 XHSSourceUnavailable（绝不返回 Mock）
   - "rest"    -> 调用受你控制的真实内容接口（XHS_REST_BASE + XHS_REST_KEY），
@@ -85,6 +88,10 @@ LAST_SOURCE = "none"
 # ---------------------------------------------------------------------------
 
 _NON_VIDEO_HINTS = ["图文", "图片", "纯文字", "图文笔记", "图集", "九宫格", "壁纸", "拼图", "手帐", "照片墙"]
+
+# 笔记「已删除 / 不存在」死链页面会出现的文案（活体核验时据此判不存在）
+_DEAD_HINTS = ("笔记不存在", "页面不见了", "内容已删除", "该笔记不存在",
+               "笔记已删除", "你访问的页面", "笔记不存在或已被删除")
 
 
 def _http_get_json(url, headers=None, timeout=15):
@@ -169,6 +176,101 @@ def _fetch_xhs_title(url):
         return t
     except Exception:
         return ""
+
+
+def _parse_xhs_state(page):
+    """从笔记页 HTML 解析小红书 SSR 状态。
+
+    返回 (has_card, is_video, title)：
+      - has_card=False  -> 没取到笔记数据（反爬/登录页/JS 重定向），无法核验；
+      - is_video=None   -> 取到 noteCard 但段内没拿到 type 字段（用 URL 信号兜底）；
+      - title           -> 解析到的真实笔记标题（优先 noteCard.title，否则 <title>）。
+    """
+    m = re.search(r'window\.__INITIAL_STATE__\s*=\s*(.*?)</script>', page, re.S)
+    is_video = None
+    title = ""
+    has_card = False
+    if not m:
+        return has_card, is_video, title
+    blob = m.group(1)
+    nc = re.search(r'"noteCard"\s*:\s*\{', blob) or re.search(r'"note_card"\s*:\s*\{', blob)
+    if nc:
+        has_card = True
+        seg = blob[nc.end():nc.end() + 4000]
+        tm = re.search(r'"type"\s*:\s*"(video|normal|image)"', seg)
+        if tm:
+            is_video = (tm.group(1) == "video")
+        titm = re.search(r'"title"\s*:\s*"((?:[^"\\]|\\.)*)"', seg)
+        if titm:
+            try:
+                title = html.unescape(json.loads('"' + titm.group(1) + '"'))
+            except Exception:
+                title = html.unescape(titm.group(1))
+    if not title:
+        mm = re.search(r'<title[^>]*>(.*?)</title>', page, re.S | re.I)
+        if mm:
+            t = html.unescape(mm.group(1).strip())
+            if t.endswith(" - 小红书"):
+                t = t[: -len(" - 小红书")].strip()
+            if t and "你的生活兴趣社区" not in t:
+                title = t
+    return has_card, is_video, title
+
+
+def _verify_xhs_note(url):
+    """活体核验单个候选笔记：确认它真实存在且是视频笔记。
+
+    返回 dict：
+      {
+        "verified": bool,  # 是否成功抓到并解析页面（失败则保守，不丢弃）
+        "alive":    bool,  # 页面真实存在（非已删除/不存在死链）
+        "is_video": bool,  # 是否为视频笔记
+        "title":    str,   # 解析到的真实标题（如有）
+      }
+
+    设计原则（绝不误杀真实视频，也不放过虚假）：
+      - 页面含「已删除/不存在」文案 -> verified=True, alive=False，明确丢弃；
+      - 抓到 noteCard 且 type=video -> 确认视频；type=normal/image -> 确认图文，丢弃；
+      - 抓到 noteCard 但段内无 type -> 用 URL 信号 / <video> 标签兜底；
+      - 完全抓不到 noteCard（疑似反爬/登录页）-> verified=False，保守保留，
+        不因为反爬误判而把真实视频当死链丢弃。
+    """
+    if not url:
+        return {"verified": False, "alive": False, "is_video": False, "title": ""}
+    try:
+        req = urllib.request.Request(
+            url,
+            headers={"User-Agent": _DEFA700_UA, "Accept-Language": "zh-CN,zh;q=0.9"},
+            method="GET",
+        )
+        with urllib.request.urlopen(req, timeout=12) as resp:
+            page = resp.read().decode("utf-8", "ignore")
+    except Exception:
+        # 抓取失败：无法核验，保守返回 verified=False，交由上层按现状处理
+        return {"verified": False, "alive": False, "is_video": False, "title": ""}
+
+    # 1) 已删除 / 不存在 的死链：页面含这些文案，直接判不存在
+    if any(h in page for h in _DEAD_HINTS):
+        return {"verified": True, "alive": False, "is_video": False, "title": ""}
+
+    # 2) 解析 SSR 状态
+    has_card, is_video, title = _parse_xhs_state(page)
+    if not has_card:
+        # 没拿到笔记数据（反爬/登录页/JS 重定向）：无法核验，保守保留
+        return {"verified": False, "alive": True, "is_video": True, "title": title}
+
+    # 3) 有 noteCard 但没取到 type：回退到 URL 信号 + 页面 <video> 标签
+    if is_video is None:
+        qp = urllib.parse.parse_qs(urllib.parse.urlparse(url).query)
+        ut = (qp.get("type") or [""])[0].lower()
+        if ut == "video":
+            is_video = True
+        elif ut == "normal":
+            is_video = False
+        else:
+            is_video = ("<video" in page) or ("og:video" in page)
+
+    return {"verified": True, "alive": True, "is_video": bool(is_video), "title": title}
 
 
 def _title_needs_fetch(title):
@@ -343,6 +445,33 @@ def _relevant_to_query(item, query):
             if core[i:i + 2] in text:
                 return True
     return core in text
+
+
+def _filter_verified(vis, query):
+    """根据活体核验结果过滤候选，规避「不存在 / 虚假」。
+
+    规则：
+      - 已核验且明确不存在（alive=False）-> 丢弃（死链）；
+      - 已核验且明确非视频（is_video=False）-> 丢弃（图文冒充视频）；
+      - 未核验（反爬/网络失败）-> 保守保留，不误杀真实视频；
+      - 取核验得到的真实标题覆盖，无真实标题的条目丢弃（避免噪声/占位冒充）；
+      - 最后用真实标题过相关性闸门。
+    """
+    kept = []
+    for u in vis:
+        v = u.get("_verify") or {}
+        if v.get("verified"):
+            if not v.get("alive"):
+                continue
+            if not v.get("is_video"):
+                continue
+        real_title = v.get("title") or u.get("title") or ""
+        u["title"] = real_title
+        if not real_title:
+            continue
+        if _relevant_to_query(u, query):
+            kept.append(u)
+    return kept
 
 
 def _classify_xhs(title, url):
@@ -576,17 +705,25 @@ def search_videos(query, limit=15):
             vis = [u for u in (_normalize(it) for it in items)
                    if u.get("type") == "video"]
             if vis:
-                # 先抓真实笔记标题（DDG 锚点文本是站点名，须取页面 <title>），
-                # 再用真实标题做相关性闸门，避免站点级噪声描述误命中。
-                _enrich_titles(vis, query)
-                # 丢弃无真实标题的条目（如 DDG 返回的无关热门页抓不到标题），
-                # 再用真实标题做相关性闸门，避免无关内容冒充相关结果。
-                vis = [u for u in vis if not u.get("_no_real_title")]
-                vis = [u for u in vis if _relevant_to_query(u, query)]
+                # 活体核验：并发抓取候选笔记页，过滤「不存在的死链」与
+                # 「图文冒充视频」的虚假条目，并拿到更可靠的真实标题。
+                def _verify_one(u):
+                    v = _verify_xhs_note(u.get("url"))
+                    if not v.get("verified") or not v.get("title"):
+                        # 核验失败 / 无标题：轻量再抓一次标题兜底
+                        rt = _fetch_xhs_title(u.get("url"))
+                        if rt:
+                            v["title"] = rt
+                    u["_verify"] = v
+
+                with ThreadPoolExecutor(max_workers=min(6, len(vis))) as ex:
+                    list(ex.map(_verify_one, vis))
+
+                vis = _filter_verified(vis, query)
                 if vis:
                     LAST_SOURCE = p
                     for u in vis:
-                        u.pop("_no_real_title", None)
+                        u.pop("_verify", None)
                     return vis
         except XHSSourceUnavailable as e:
             last_err = e
