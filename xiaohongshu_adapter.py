@@ -245,9 +245,15 @@ def _verify_xhs_note(url):
         )
         with urllib.request.urlopen(req, timeout=12) as resp:
             page = resp.read().decode("utf-8", "ignore")
+    except urllib.error.HTTPError as e:
+        # 404/410 是明确死链；403/5xx 或反爬则保守保留，不误杀真实视频。
+        body = (e.read() or b"").decode("utf-8", "ignore")
+        if e.code in (404, 410) or any(h in body for h in _DEAD_HINTS):
+            return {"verified": True, "alive": False, "is_video": False, "title": ""}
+        return {"verified": False, "alive": True, "is_video": True, "title": ""}
     except Exception:
-        # 抓取失败：无法核验，保守返回 verified=False，交由上层按现状处理
-        return {"verified": False, "alive": False, "is_video": False, "title": ""}
+        # 网络/超时/解析等失败：无法核验，保守保留
+        return {"verified": False, "alive": True, "is_video": True, "title": ""}
 
     # 1) 已删除 / 不存在 的死链：页面含这些文案，直接判不存在
     if any(h in page for h in _DEAD_HINTS):
@@ -665,9 +671,9 @@ def search_videos(query, limit=15):
     数据源策略：
       - XHS_PROVIDER=none       -> 如实报错（未配置真实数据源，绝不用 Mock 冒充）。
       - XHS_PROVIDER=rest       -> 只用用户自己的合规内容接口。
-      - 其余（tavily / ddg / 未知）-> 优先用配置项，若该源返回 0 / 失败，
-        自动回退到 ddg -> tavily，最大化「真实拿到视频笔记」的概率；
-        全部失败才如实上报。LAST_SOURCE 记录最终真正出数据的源。
+      - 其余（tavily / ddg / 未知）-> 多源并行合并召回：
+        同时调用配置源与 ddg/tavily 兜底源，合并去重后统一活体核验过滤；
+        全部源都失败才如实上报。LAST_SOURCE 记录最终真正出数据的源。
     """
     global LAST_SOURCE
     provider = (os.getenv("XHS_PROVIDER") or "none").strip().lower()
@@ -689,48 +695,75 @@ def search_videos(query, limit=15):
             u.pop("_no_real_title", None)
         return vis
 
-    # 免费检索源：配置项优先，失败/空则自动回退
+    # 免费检索源：多源并行合并召回，不再"有一个源有结果就停"，
+    # 而是把配置源 + 兜底源的结果合并去重后统一活体核验，最大化真实视频召回。
     order = []
     if provider in ("tavily", "ddg"):
         order = [provider, "ddg", "tavily"]
     else:
         order = ["ddg", "tavily"]
     order = [p for p in order if p in PROVIDERS]
+    # 去重（配置源与兜底源可能相同）
+    order = list(dict.fromkeys(order))
 
+    all_items = []
+    seen_urls = set()
     last_err = None
+    sources_used = []
+    max_pool = max(limit * 3, 30)
+    per_limit = max(limit * 2, 20)
+
     for p in order:
         try:
-            raw = PROVIDERS[p](query, limit)
+            raw = PROVIDERS[p](query, per_limit)
             items = _extract_items(raw)
-            vis = [u for u in (_normalize(it) for it in items)
-                   if u.get("type") == "video"]
-            if vis:
-                # 活体核验：并发抓取候选笔记页，过滤「不存在的死链」与
-                # 「图文冒充视频」的虚假条目，并拿到更可靠的真实标题。
-                def _verify_one(u):
-                    v = _verify_xhs_note(u.get("url"))
-                    if not v.get("verified") or not v.get("title"):
-                        # 核验失败 / 无标题：轻量再抓一次标题兜底
-                        rt = _fetch_xhs_title(u.get("url"))
-                        if rt:
-                            v["title"] = rt
-                    u["_verify"] = v
-
-                with ThreadPoolExecutor(max_workers=min(6, len(vis))) as ex:
-                    list(ex.map(_verify_one, vis))
-
-                vis = _filter_verified(vis, query)
-                if vis:
-                    LAST_SOURCE = p
-                    for u in vis:
-                        u.pop("_verify", None)
-                    return vis
+            src_added = 0
+            for it in items:
+                u = _normalize(it)
+                if u.get("type") != "video":
+                    continue
+                key = re.sub(r'[?#].*$', '', (u.get("url") or ""))
+                if not key or key in seen_urls:
+                    continue
+                seen_urls.add(key)
+                u["_source"] = p
+                all_items.append(u)
+                src_added += 1
+                if len(all_items) >= max_pool:
+                    break
+            if src_added:
+                sources_used.append(p)
+            if len(all_items) >= max_pool:
+                break
         except XHSSourceUnavailable as e:
             last_err = e
             continue
         except Exception as e:  # 任何异常都不伪装成数据
             last_err = e
             continue
+
+    if all_items:
+        # 活体核验：并发抓取候选笔记页，过滤「不存在的死链」与
+        # 「图文冒充视频」的虚假条目，并拿到更可靠的真实标题。
+        def _verify_one(u):
+            v = _verify_xhs_note(u.get("url"))
+            if not v.get("verified") or not v.get("title"):
+                # 核验失败 / 无标题：轻量再抓一次标题兜底
+                rt = _fetch_xhs_title(u.get("url"))
+                if rt:
+                    v["title"] = rt
+            u["_verify"] = v
+
+        with ThreadPoolExecutor(max_workers=min(8, len(all_items))) as ex:
+            list(ex.map(_verify_one, all_items))
+
+        vis = _filter_verified(all_items, query)
+        if vis:
+            LAST_SOURCE = "+".join(sources_used) if sources_used else provider
+            for u in vis:
+                u.pop("_verify", None)
+                u.pop("_source", None)
+            return vis[:limit]
 
     if last_err:
         raise last_err

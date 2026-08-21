@@ -993,7 +993,11 @@ body{font-family:var(--sf);color:var(--label);display:flex;justify-content:cente
       { label: "完成", done: true },
     ]));
 
-    if (list.length && list.length < 5) {
+    if (d.note) {
+      // 后端明确返回了提示（如"免费源覆盖有限 / 需登录观看"），优先展示
+      const noteText = d.note.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/\n/g, "<br>");
+      sec.appendChild(el("div", "src-note", noteText));
+    } else if (list.length && list.length < 5) {
       sec.appendChild(el("div", "src-note",
         "当前只找到 " + list.length + " 条符合「视频笔记」条件的高相关内容。"));
     } else if (realtime) {
