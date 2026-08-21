@@ -291,39 +291,46 @@ def handle_search(data):
             eff_queries.append((q + " " + clarification).strip())
     eff_queries = eff_queries[:6]
 
-    candidates = []
-    seen = set()
-    source = None
-    src_unavailable = False
-    for q in eff_queries:
-        try:
-            items = xhs.search_videos(q, limit=15)
-            source = xhs.LAST_SOURCE
-        except xhs.XHSSourceUnavailable as e:
-            # 单个检索词的数据源异常：跳过该词继续其他词；
-            # 只有全部词都失败才如实上报，绝不以 Mock 冒充。
-            src_unavailable = True
-            log("SEARCH SRC UNAVAILABLE", str(e)[:120])
-            continue
-        except Exception as e:
-            log("SEARCH ERROR", str(e))
-            continue
-        log("SEARCH RESULT COUNT", "query=%s count=%d source=%s" % (q, len(items), xhs.LAST_SOURCE))
-        for it in items:
-            key = it.get("url") or it.get("id")
-            if not key or key in seen:
+    def _run():
+        candidates = []
+        seen = set()
+        source = None
+        src_unavailable = False
+        for q in eff_queries:
+            try:
+                items = xhs.search_videos(q, limit=15)
+                source = xhs.LAST_SOURCE
+            except xhs.XHSSourceUnavailable as e:
+                # 单个检索词的数据源异常：跳过该词继续其他词；
+                # 只有全部词都失败才如实上报，绝不以 Mock 冒充。
+                src_unavailable = True
+                log("SEARCH SRC UNAVAILABLE", str(e)[:120])
                 continue
-            seen.add(key)
-            candidates.append(it)
-
-    log("VIDEO FILTER COUNT", str(len(candidates)))
-    if not candidates:
+            except Exception as e:
+                log("SEARCH ERROR", str(e))
+                continue
+            log("SEARCH RESULT COUNT", "query=%s count=%d source=%s" % (q, len(items), xhs.LAST_SOURCE))
+            for it in items:
+                key = it.get("url") or it.get("id")
+                if not key or key in seen:
+                    continue
+                seen.add(key)
+                candidates.append(it)
+        if candidates:
+            return {"results": candidates, "code": "ok", "realtime": True, "source": source or "unknown"}
         if src_unavailable:
             return {"results": [], "code": "xhs_source_unavailable", "realtime": False,
                     "note": "所有检索词的小红书视频数据源当前都不可用（Tavily 免费层可能限流，或暂未收录该主题）。可稍后重试，"
                             "或接入 XHS_PROVIDER=rest 并配置 XHS_REST_BASE 指向合规的小红书内容接口以稳定检索。"}
         return {"results": [], "code": "no_results", "realtime": True, "source": source or "unknown"}
-    return {"results": candidates, "code": "ok", "realtime": True, "source": source or "unknown"}
+
+    # 免费检索源偶发限流（429）时，整体等几秒后重试一次，扛过限流窗口
+    res = _run()
+    if res.get("code") == "xhs_source_unavailable":
+        log("SEARCH RETRY after throttle", "wait 4s")
+        time.sleep(4)
+        res = _run()
+    return res
 
 
 def _batch_engagement_score(candidates):

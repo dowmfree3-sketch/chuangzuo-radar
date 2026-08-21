@@ -245,7 +245,7 @@ def _provider_tavily(query, limit):
     }
     last_err = None
     data = None
-    for attempt in range(2):
+    for attempt in range(4):
         try:
             req = urllib.request.Request(
                 "https://api.tavily.com/search",
@@ -259,14 +259,17 @@ def _provider_tavily(query, limit):
             break
         except urllib.error.HTTPError as e:
             last_err = "Tavily 请求失败（HTTP %s）" % e.code
-            if e.code == 429:
-                time.sleep(2)
+            if e.code == 429 and attempt < 3:
+                # 免费层偶发限流：指数退避重试，扛过短期限流窗口
+                time.sleep(2 * (attempt + 1))
                 continue
             raise XHSSourceUnavailable(last_err)
         except Exception as e:
             last_err = "Tavily 暂时不可用：%s" % e
-            time.sleep(1)
-            continue
+            if attempt < 3:
+                time.sleep(1)
+                continue
+            raise XHSSourceUnavailable(last_err)
     if last_err:
         raise XHSSourceUnavailable(last_err)
 
