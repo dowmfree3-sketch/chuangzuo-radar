@@ -43,15 +43,22 @@
 """
 
 import os
+import re
 import json
+import html
 import urllib.request
 import urllib.parse
 import urllib.error
+from concurrent.futures import ThreadPoolExecutor
 
 
 class XHSSourceUnavailable(Exception):
     """真实小红书数据源不可用 / 未配置。"""
     pass
+
+
+# 最近一次成功返回数据的 provider 名称（供上层如实上报来源）
+LAST_SOURCE = "none"
 
 
 # ---------------------------------------------------------------------------
@@ -76,7 +83,7 @@ class XHSSourceUnavailable(Exception):
 # 也允许直接返回数组（顶层为 list）。
 # ---------------------------------------------------------------------------
 
-_NON_VIDEO_HINTS = ["图文", "图片", "纯文字", "图文笔记", "图集", "九宫格"]
+_NON_VIDEO_HINTS = ["图文", "图片", "纯文字", "图文笔记", "图集", "九宫格", "壁纸", "拼图", "手帐", "照片墙"]
 
 
 def _http_get_json(url, headers=None, timeout=15):
@@ -111,6 +118,100 @@ def _provider_rest(query, limit):
         raise XHSSourceUnavailable("真实数据源暂时不可用：%s" % e)
 
 
+_NOISE_FRAME = ("行吟信息科技", "你的生活兴趣社区", "沪ICP备", "© 2014")
+
+def _clean_xhs_title(title, query=None):
+    """清洗小红书框架噪声标题。
+
+    仅做「去后缀 / 去纯框架噪声」的轻量清洗；若标题本身就是站点名或框架噪声，
+    返回空字符串，交由 _enrich_titles 去抓真实笔记标题（绝不用检索词冒充真实标题）。
+    """
+    t = (title or "").strip()
+    if t.endswith(" - 小红书"):
+        t = t[: -len(" - 小红书")].strip()
+    if not t or t == "小红书" or t == "Xiaohongshu":
+        return ""
+    if any(h in t for h in ("你的生活兴趣社区", "行吟信息科技")):
+        return ""
+    return t
+
+
+_DEFA700_UA = (
+    "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 "
+    "(KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
+)
+
+
+def _fetch_xhs_title(url):
+    """抓取小红书单篇笔记页 <title> 拿到真实笔记标题（非 Mock、非检索词冒充）。
+
+    返回清洗后的真实标题；抓取失败 / 页面无有效标题时返回空字符串。
+    """
+    if not url:
+        return ""
+    try:
+        req = urllib.request.Request(
+            url,
+            headers={"User-Agent": _DEFA700_UA, "Accept-Language": "zh-CN,zh;q=0.9"},
+            method="GET",
+        )
+        with urllib.request.urlopen(req, timeout=12) as resp:
+            page = resp.read().decode("utf-8", "ignore")
+        m = re.search(r"<title[^>]*>(.*?)</title>", page, re.S | re.I)
+        if not m:
+            return ""
+        t = html.unescape(m.group(1).strip())
+        if t.endswith(" - 小红书"):
+            t = t[: -len(" - 小红书")].strip()
+        if not t or t == "小红书" or "你的生活兴趣社区" in t:
+            return ""
+        return t
+    except Exception:
+        return ""
+
+
+def _title_needs_fetch(title):
+    t = (title or "").strip()
+    if not t:
+        return True
+    if t in ("小红书", "Xiaohongshu", "小红书-你的生活兴趣社区"):
+        return True
+    if "你的生活兴趣社区" in t:
+        return True
+    return False
+
+
+def _enrich_titles(items, query):
+    """为标题缺失 / 退化为站点名的笔记并发抓取真实标题。
+
+    仅对「标题不可用」的条目发起抓取，真实标题优先；抓取失败才用检索词生成
+    兜底标题（明确标注为「相关视频笔记」，不冒充具体笔记内容）。
+    """
+    targets = [it for it in items if _title_needs_fetch(it.get("title"))]
+    if not targets:
+        return
+    q = (query or "").strip()
+
+    def _fill(it):
+        real = _fetch_xhs_title(it.get("url"))
+        if real:
+            it["title"] = real
+        else:
+            it["title"] = ("「%s」相关视频笔记" % q) if q else "小红书视频笔记"
+
+    with ThreadPoolExecutor(max_workers=min(6, len(targets))) as ex:
+        list(ex.map(_fill, targets))
+
+def _clean_xhs_desc(desc):
+    """清洗页面框架噪声摘要；无法判定为真实内容时返回空字符串。"""
+    d = (desc or "").strip()
+    if any(h in d for h in _NOISE_FRAME):
+        return ""
+    if len(d) < 30:
+        return ""
+    return d
+
+
 def _provider_tavily(query, limit):
     """通过 Tavily 搜索 API 在 xiaohongshu.com 域内检索视频笔记候选。
 
@@ -127,13 +228,13 @@ def _provider_tavily(query, limit):
             "Tavily 密钥未正确配置：请在 .env 的 TAVILY_API_KEY 填入以 tvly- 开头的真实密钥"
             "（注册地址 https://app.tavily.com）"
         )
-    # 视频偏向：检索词强制带「视频」，并限定域名
+    # 视频偏向：检索词强制带「视频」，并限定域名；提高召回基数以便筛出视频
     q = (query + " 视频").strip()
     payload = {
         "api_key": key,
         "query": q,
         "search_depth": "basic",
-        "max_results": min(int(limit) * 2, 20),
+        "max_results": min(int(limit) * 2, 25),
         "include_domains": ["xiaohongshu.com"],
         "include_answer": False,
         "include_raw_content": False,
@@ -156,29 +257,17 @@ def _provider_tavily(query, limit):
     out = []
     for it in raw_items:
         url = (it.get("url") or "").strip()
-        # 只保留真实笔记页 URL，丢弃列表/搜索/聚合页
+        # 只保留真实笔记页 URL，丢弃用户主页/招聘/开放平台/列表等聚合页
         if "/explore/" not in url and "/discovery/item/" not in url:
             continue
-        title = (it.get("title") or "").strip()
-        if title.endswith(" - 小红书"):
-            title = title[: -len(" - 小红书")]
+        title = _clean_xhs_title(it.get("title"), query)
         # 跳过已被删除/不存在的笔记页（搜索结果残留的死链）
-        if any(h in title for h in ("页面不见了", "笔记不存在", "内容已删除", "该笔记不存在", "笔记已删除", "你访问的页面")):
+        if any(h in title for h in ("页面不见了", "笔记不存在", "内容已删除", "该笔记不存在", "笔记已删除", "你访问的页面", "笔记不存在或已被删除")):
             continue
-        content = (it.get("content") or "").strip()
-        low = (title + " " + content).lower()
-
-        # 类型判定（按可信度从高到低）：
-        #   1) URL 查询串里的 type=video / type=normal 是小红书分享链接自带的高可信信号
-        #   2) 否则用标题/摘要里的图文/纯文字信号做规则判定
-        qp = urllib.parse.parse_qs(urllib.parse.urlparse(url).query)
-        url_type = (qp.get("type") or [""])[0].lower()
-        if url_type == "video":
-            ntype = "video"
-        elif url_type == "normal":
-            ntype = "image"  # 图文/文字笔记，数据层丢弃
-        else:
-            ntype = "image" if any(h in low for h in _NON_VIDEO_HINTS) else "video"
+        # 摘要若为页面框架噪声则清空；真实视频笔记 URL 仍保留（用户可点开查看）
+        content = _clean_xhs_desc(it.get("content"))
+        # 类型判定（统一交给 _classify_xhs，按「纯度优先但不误杀」原则）
+        ntype = _classify_xhs(title, url)
 
         out.append({
             "id": url,
@@ -198,9 +287,189 @@ def _provider_tavily(query, limit):
     return {"results": out}
 
 
+# 检索词里的"弱意图词"，判定相关性时会被去掉，只保留核心主题词
+_STOP_WORDS = ("视频", "教程", "分享", "推荐", "怎么", "如何", "怎样",
+               "小技巧", "技巧", "方法", "攻略", "合集", "全集", "日常",
+               "记录", "短视频", "vlog", "VLOG", "Vlog", "a", "the", "of")
+
+
+def _core_query(query):
+    """去掉弱意图词，提取检索核心主题串（用于相关性判定）。"""
+    q = (query or "").strip()
+    for s in _STOP_WORDS:
+        q = q.replace(s, "")
+    return q.strip()
+
+
+def _relevant_to_query(item, query):
+    """粗粒度相关性闸门：标题/摘要须含检索核心主题词，避免无关笔记冒充结果。
+
+    免费检索源（Tavily / DDG）对小红书单篇笔记的覆盖与相关性都很弱，
+    若不闸门会出现「搜收纳技巧却返回足球集锦」这类误导。宁可少返回，
+    也绝不把无关内容当结果（符合「绝不 Mock / 诚实」原则）。
+    无法判定相关性（核心词过短）时保守保留。
+    """
+    core = _core_query(query)
+    if len(core) < 2:
+        return True
+    # 只用「真实笔记标题」判定（DDG 返回的 description 是小红书站点级分类噪声，
+    # 含「影视/职场/健身/视频」等词会误命中，绝不能用它判相关性）。
+    text = (item.get("title") or "").strip()
+    if not text:
+        return True
+    # 中文按二元组匹配：核心词任一连续 2 字出现在真实标题即视为相关
+    if len(core) >= 2:
+        for i in range(len(core) - 1):
+            if core[i:i + 2] in text:
+                return True
+    return core in text
+
+
+def _classify_xhs(title, url):
+    """判定小红书笔记是否为视频。返回 'video' 或 'image'。
+
+    原则（纯度优先但不误杀）：
+      - URL 查询串 type=video  -> 视频（高可信信号）
+      - URL 查询串 type=normal -> 图文/文字（丢弃）
+      - 标题含强图文信号        -> 图文（丢弃）
+      - 其余（含视频信号 / 无信号）-> 视频候选
+
+    说明：检索已在查询里强制带「视频」并限定 xiaohongshu.com 笔记页，
+    因此「无明确信号」的笔记也应视为视频候选，避免把真实视频误杀导致 0 结果。
+    明确的图文（图集/九宫格/壁纸等）才丢弃，以保证不混入图文笔记。
+    """
+    qp = urllib.parse.parse_qs(urllib.parse.urlparse(url or "").query)
+    url_type = (qp.get("type") or [""])[0].lower()
+    if url_type == "video":
+        return "video"
+    if url_type == "normal":
+        return "image"
+    low = (title or "").lower()
+    if any(h in low for h in _NON_VIDEO_HINTS):
+        return "image"
+    # 其余一律视为视频候选（命中视频信号 / 无信号两种情况都保留）
+    return "video"
+
+
+def _decode_ddg_url(href):
+    """DuckDuckGo 结果链接常经过 /l/?uddg=<encoded> 重定向，解出真实地址。"""
+    if "uddg=" in href:
+        m = re.search(r'uddg=([^&]+)', href)
+        if m:
+            return urllib.parse.unquote(m.group(1))
+    return href
+
+
+_NON_NOTE_SEGMENTS = {
+    "homepage", "feed", "search", "explore", "discovery", "user", "users",
+    "topics", "topic", "page", "mobile", "question", "questions", "board",
+    "channel", "activity", "notice", "login", "search_result", "guide",
+}
+
+
+def _is_xhs_note_url(url):
+    """判断是否为小红书单篇笔记页（排除主页/话题/用户/搜索等聚合页）。"""
+    path = urllib.parse.urlparse(url or "").path
+    for pat in ("/explore/", "/discovery/item/"):
+        if pat in path:
+            seg = path.split(pat, 1)[1]
+            seg = seg.split("/")[0].split("?")[0].split("#")[0]
+            if not seg or seg.lower() in _NON_NOTE_SEGMENTS:
+                return False
+            return True
+    return False
+
+
+def _parse_ddg(page_html, limit):
+    """从 DuckDuckGo 搜索结果页里解析出小红书「单篇笔记页」候选。"""
+    out = []
+    seen = set()
+    # 抓取所有 <a href="...">文本</a>，覆盖 lite 与 html 两种结果格式
+    anchor_re = re.compile(r'<a\b[^>]*?href="([^"]+)"[^>]*>(.*?)</a>', re.S | re.I)
+    for m in anchor_re.finditer(page_html):
+        href = m.group(1)
+        text = html.unescape(re.sub(r'<[^>]+>', '', m.group(2))).strip()
+        real = _decode_ddg_url(href)
+        if not real or "xiaohongshu.com" not in real:
+            continue
+        # 只保留真实单篇笔记页（explore / discovery/item），丢弃主页/话题/用户页
+        if not _is_xhs_note_url(real):
+            continue
+        key = re.sub(r'[?#].*$', '', real)
+        if key in seen:
+            continue
+        seen.add(key)
+        title = text or real.rsplit("/", 1)[-1]
+        if title.endswith(" - 小红书"):
+            title = title[: -len(" - 小红书")]
+        # 跳过已被删除/不存在的死链残留
+        if any(h in title for h in ("页面不见了", "笔记不存在", "内容已删除",
+                                    "该笔记不存在", "笔记已删除", "你访问的页面",
+                                    "笔记不存在或已被删除")):
+            continue
+        # 片段：取锚点后到下一个 <a 之间的纯文本作为「公开摘要」（避免吞掉下一条结果）
+        after = page_html[m.end():]
+        nxt = after.find("<a")
+        after = after[:nxt] if nxt != -1 else after[:700]
+        snippet = html.unescape(re.sub(r'<[^>]+>', ' ', after))
+        snippet = re.sub(r'\s+', ' ', snippet).strip()[:300]
+        ntype = _classify_xhs(title, real)
+        if ntype != "video":
+            continue
+        out.append({
+            "id": real,
+            "platform": "xiaohongshu",
+            "title": title,
+            "author": "",
+            "url": real,
+            "cover": "",
+            "type": "video",
+            "publishedAt": "",
+            "likes": None,
+            "collects": None,
+            "comments": None,
+            "videoUrl": "",
+            "description": snippet,
+        })
+        if len(out) >= limit:
+            break
+    return out
+
+
+def _provider_ddg(query, limit):
+    """通过 DuckDuckGo（免费、无需密钥）在 xiaohongshu.com 域内检索视频笔记候选。
+
+    DuckDuckGo 会索引小红书被搜索引擎收录的单篇笔记页（Tavily 当前已不再索引
+    小红书单篇笔记页，因此本 provider 作为更可靠的主力来源）。
+    检索词强制带「视频」并加 site: 限定域名，再按 _classify_xhs 过滤图文。
+    """
+    q = (query + " 视频").strip()
+    search_q = "site:xiaohongshu.com " + q
+    url = "https://lite.duckduckgo.com/lite/?q=" + urllib.parse.quote(search_q)
+    headers = {
+        "User-Agent": (
+            "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 "
+            "(KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
+        ),
+        "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
+        "Accept-Language": "zh-CN,zh;q=0.9,en;q=0.8",
+    }
+    try:
+        req = urllib.request.Request(url, headers=headers, method="GET")
+        with urllib.request.urlopen(req, timeout=20) as resp:
+            page_html = resp.read().decode("utf-8", "ignore")
+    except Exception as e:
+        raise XHSSourceUnavailable("DuckDuckGo 检索失败：%s" % e)
+    items = _parse_ddg(page_html, limit)
+    # 无笔记页结果时返回空列表，交由 search_videos 统一给出「未找到相关笔记」的
+    # 综合诚实说明，而不是在此抛 DDG 专属异常（避免误导用户以为是反爬）。
+    return {"results": items}
+
+
 PROVIDERS = {
     "rest": _provider_rest,
     "tavily": _provider_tavily,
+    "ddg": _provider_ddg,
 }
 
 
@@ -241,40 +510,69 @@ def _normalize(item):
     }
 
 
-def _looks_non_video(u):
-    """规则层：明显是图文/纯文字且无视频信号 -> 视为非视频。"""
-    text = ((u.get("title") or "") + " " + (u.get("description") or "")).lower()
-    if any(h in text for h in _NON_VIDEO_HINTS):
-        # 只有当完全没有视频信号时才丢弃；有 videoUrl 则保留
-        if not (u.get("videoUrl") or u.get("cover")):
-            return True
-    return False
-
-
 def search_videos(query, limit=15):
     """统一检索入口：返回已过滤的「视频笔记」列表（统一结构）。
 
-    第一层过滤（数据层）：type 必须是 "video"。
-    第二层过滤（规则层）：排除明显图文/纯文字。
+    数据源策略：
+      - XHS_PROVIDER=none       -> 如实报错（未配置真实数据源，绝不用 Mock 冒充）。
+      - XHS_PROVIDER=rest       -> 只用用户自己的合规内容接口。
+      - 其余（tavily / ddg / 未知）-> 优先用配置项，若该源返回 0 / 失败，
+        自动回退到 ddg -> tavily，最大化「真实拿到视频笔记」的概率；
+        全部失败才如实上报。LAST_SOURCE 记录最终真正出数据的源。
     """
+    global LAST_SOURCE
     provider = (os.getenv("XHS_PROVIDER") or "none").strip().lower()
-    if provider == "none" or provider not in PROVIDERS:
+
+    if provider == "none":
         raise XHSSourceUnavailable(
-            "当前环境缺少真实小红书数据源：请配置 XHS_PROVIDER=tavily 并提供 TAVILY_API_KEY，"
+            "当前环境缺少真实小红书数据源：请配置 XHS_PROVIDER=tavily 或 ddg，"
             "或配置 XHS_PROVIDER=rest 并提供 XHS_REST_BASE / XHS_REST_KEY 指向合规的小红书内容接口。"
         )
 
-    raw = PROVIDERS[provider](query, limit)
-    items = _extract_items(raw)
+    if provider == "rest":
+        raw = PROVIDERS["rest"](query, limit)
+        LAST_SOURCE = "rest"
+        vis = [u for u in (_normalize(it) for it in _extract_items(raw))
+               if u.get("type") == "video"]
+        _enrich_titles(vis, query)
+        return vis
 
-    out = []
-    for it in items:
-        u = _normalize(it)
-        # 第一层：数据层只保留视频
-        if u.get("type") != "video":
+    # 免费检索源：配置项优先，失败/空则自动回退
+    order = []
+    if provider in ("tavily", "ddg"):
+        order = [provider, "ddg", "tavily"]
+    else:
+        order = ["ddg", "tavily"]
+    order = [p for p in order if p in PROVIDERS]
+
+    last_err = None
+    for p in order:
+        try:
+            raw = PROVIDERS[p](query, limit)
+            items = _extract_items(raw)
+            vis = [u for u in (_normalize(it) for it in items)
+                   if u.get("type") == "video"]
+            if vis:
+                # 先抓真实笔记标题（DDG 锚点文本是站点名，须取页面 <title>），
+                # 再用真实标题做相关性闸门，避免站点级噪声描述误命中。
+                _enrich_titles(vis, query)
+                vis = [u for u in vis if _relevant_to_query(u, query)]
+                if vis:
+                    LAST_SOURCE = p
+                    return vis
+        except XHSSourceUnavailable as e:
+            last_err = e
             continue
-        # 第二层：规则层确认非图文/纯文字
-        if _looks_non_video(u):
+        except Exception as e:  # 任何异常都不伪装成数据
+            last_err = e
             continue
-        out.append(u)
-    return out
+
+    if last_err:
+        raise last_err
+    raise XHSSourceUnavailable(
+        "未在真实数据源中找到与「%s」相关的小红书视频笔记。"
+        "免费检索源（Tavily / DuckDuckGo）当前对小红书单篇笔记的覆盖与相关性都很有限："
+        "Tavily 仅收录聚合页、DDG 仅返回少量热门笔记且不按关键词检索。"
+        "如需稳定检索相关视频，请接入 XHS_PROVIDER=rest 并配置 XHS_REST_BASE 指向合规的小红书内容接口。"
+        % (query or "").strip()
+    )

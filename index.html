@@ -393,6 +393,7 @@ body{font-family:var(--sf);color:var(--label);display:flex;justify-content:cente
 .topic .vstats{display:flex;flex-wrap:wrap;gap:10px;margin-top:10px;font-size:12px;color:var(--label2)}
 .topic .vstats .vs b{color:var(--accent);font-weight:700}
 .topic .vstats .vs.na b{color:var(--label3);font-weight:500}
+.topic .vnote{margin-top:10px;font-size:11px;line-height:1.45;color:var(--label3);background:rgba(0,0,0,.03);border-radius:8px;padding:6px 9px}
 .topic .vbtn{display:inline-flex;align-items:center;gap:5px;margin-top:11px;font-size:12px;font-weight:600;color:#fff;background:linear-gradient(135deg,var(--accent),var(--accent-2));border:none;border-radius:999px;padding:7px 14px;cursor:pointer;text-decoration:none;box-shadow:0 4px 12px rgba(180,49,65,.3)}
 .topic .vbtn:active{transform:scale(.97)}
 .prog{display:flex;flex-direction:column;gap:8px;margin:0 2px 16px}
@@ -584,6 +585,20 @@ body{font-family:var(--sf);color:var(--label);display:flex;justify-content:cente
 (function () {
   "use strict";
 
+  // 视频拆解页样式（动态注入，避免改动大段 CSS）
+  document.head.insertAdjacentHTML("beforeend", `
+    .decomp-video{background:var(--glass-strong);border:1px solid var(--stroke);border-radius:18px;padding:14px 16px;margin:12px 0;}
+    .decomp-video__tag{font-size:12px;color:var(--label2);}
+    .decomp-video__title{font-size:16px;font-weight:700;margin:6px 0 8px;line-height:1.4;}
+    .decomp-video__meta{font-size:12px;color:var(--label2);margin-bottom:10px;}
+    .decomp-block{background:var(--glass);border:1px solid var(--stroke);border-radius:16px;padding:12px 14px;margin:10px 0;}
+    .decomp-block__title{font-size:14px;font-weight:700;color:var(--accent);margin-bottom:6px;}
+    .decomp-block__body{font-size:14px;line-height:1.65;color:var(--label);white-space:pre-wrap;word-break:break-word;}
+    .decomp-list{margin:0;padding-left:18px;}
+    .decomp-list li{font-size:14px;line-height:1.65;margin:5px 0;color:var(--label);}
+    .decomp-based{font-size:11px;color:var(--label3);margin-top:12px;line-height:1.5;}
+  `);
+
   // 后端基址：file:// 直接打开 -> 本地后端；http(s) 同源 -> 相对路径
   const API_BASE = (location.protocol === "file:") ? "http://127.0.0.1:8000" : "";
 
@@ -636,7 +651,7 @@ body{font-family:var(--sf);color:var(--label);display:flex;justify-content:cente
   /* ---------------- 状态 ---------------- */
   const S = {
     idea: "", account: null, understanding: null, queries: [],
-    rawCandidates: [], videos: [], clarification: "",
+    rawCandidates: [], videos: [], clarification: "", selectedIdx: 0,
     xhsReady: false, aiOnline: false,
   };
 
@@ -939,6 +954,8 @@ body{font-family:var(--sf);color:var(--label);display:flex;justify-content:cente
     }
 
     if (v.url) {
+      const note = el("div", "vnote", "在小红书 App / 网页登录账号后可观看；部分笔记需登录才能打开。");
+      node.appendChild(note);
       const btn = el("a", "vbtn");
       btn.innerHTML = ICON_EXT + "查看原笔记";
       btn.href = v.url; btn.target = "_blank"; btn.rel = "noopener noreferrer";
@@ -949,6 +966,7 @@ body{font-family:var(--sf);color:var(--label);display:flex;justify-content:cente
       if (e.target.closest(".vbtn")) return;
       $$('[data-screen="2"] .topic').forEach((x) => x.classList.remove("on"));
       node.classList.add("on");
+      S.selectedIdx = i;
     });
     return node;
   }
@@ -989,7 +1007,7 @@ body{font-family:var(--sf);color:var(--label);display:flex;justify-content:cente
 
     sec.appendChild(footActions({
       back: () => backTo(1), backLabel: "返回",
-      next: () => renderNextPhase(), nextLabel: "进入视频拆解（即将上线） →",
+      next: () => renderDecompose(), nextLabel: "拆解选中的视频 →",
     }));
   }
 
@@ -999,10 +1017,13 @@ body{font-family:var(--sf);color:var(--label);display:flex;justify-content:cente
     const code = d.code || "no_results";
 
     if (code === "xhs_source_unavailable") {
-      sec.appendChild(headerBlock("暂时拿不到小红书内容", "数据源还没接上。"));
-      sec.appendChild(el("div", "empty-note",
-        "当前无法获取小红书内容，请稍后重试。<br><br>需要在后端配置真实数据源" +
-        "（设置 <b>XHS_PROVIDER</b> 与对应的内容接口）后，才能返回真实视频笔记。"));
+      sec.appendChild(headerBlock("暂时拿不到相关的小红书视频", "真实数据源没有匹配结果。"));
+      const box = el("div", "empty-note");
+      box.innerHTML = (d.note
+        ? d.note.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/\n/g, "<br>")
+        : "当前环境未在真实数据源中找到相关的小红书视频笔记。<br><br>需要接入合规数据源" +
+          "（设置 <b>XHS_PROVIDER=rest</b> 并配置 <b>XHS_REST_BASE</b> 指向内容接口）后，才能返回相关视频。");
+      sec.appendChild(box);
       sec.appendChild(footActions({ back: () => backTo(1), backLabel: "返回", next: () => proceedToSearch(), nextLabel: "重新搜索 →" }));
       return;
     }
@@ -1028,14 +1049,80 @@ body{font-family:var(--sf);color:var(--label);display:flex;justify-content:cente
     }));
   }
 
-  function renderNextPhase() {
+  function renderDecompose() {
+    const list = S.videos || [];
+    const idx = (S.selectedIdx != null) ? S.selectedIdx : 0;
+    const video = list[idx];
+    if (!video) { backTo(2); return; }
     const sec = $('[data-screen="3"]');
     sec.innerHTML = "";
-    sec.appendChild(headerBlock("下一阶段：视频拆解", "本阶段（真实 AI + 真实小红书视频检索）已跑通。"));
-    sec.appendChild(el("div", "empty-note",
-      "视频拆解 / 内容策略将在后续阶段上线。<br>本次 MVP 已交付：真实 AI 理解 + 真实小红书视频检索 + AI 筛选 Top 5。"));
-    sec.appendChild(footActions({ back: () => backTo(2), backLabel: "返回视频" }));
-    showScreen(3, false);
+
+    sec.appendChild(headerBlock("视频拆解 · 爆点分析",
+      "基于这条笔记的标题与公开摘要，AI 帮你拆出可复用的爆点。"));
+
+    // 待拆解视频信息卡
+    const vcard = el("div", "decomp-video");
+    vcard.appendChild(el("div", "decomp-video__tag", "📹 待拆解视频"));
+    vcard.appendChild(el("div", "decomp-video__title", video.title || "（无标题）"));
+    const vmeta = el("div", "decomp-video__meta");
+    vmeta.appendChild(el("span", "", "作者：" + (video.author || "暂无数据")));
+    if (video.publishedAt) vmeta.appendChild(el("span", "", " · " + video.publishedAt));
+    vcard.appendChild(vmeta);
+    if (video.url) {
+      const btn = el("a", "vbtn");
+      btn.innerHTML = ICON_EXT + "查看原笔记";
+      btn.href = video.url; btn.target = "_blank"; btn.rel = "noopener noreferrer";
+      vcard.appendChild(btn);
+    }
+    sec.appendChild(vcard);
+
+    showThinking("拆解这条视频", "分析标题与公开摘要…");
+    (async () => {
+      try {
+        const d = await api("/api/analyze-video", {
+          video: video,
+          intent: S.understanding,
+          idea: S.idea,
+          accountContext: accountCtx(),
+        });
+        hideThinking();
+        const a = d.analysis || {};
+        sec.appendChild(decompSection("🎯 一句话定位", a.positioning));
+        sec.appendChild(decompSection("🪝 开头钩子", a.hook));
+        sec.appendChild(decompList("🧩 内容结构", a.structure));
+        sec.appendChild(decompList("🔥 可借鉴的爆点 / 手法", a.borrowable));
+        sec.appendChild(decompSection("👥 受众洞察", a.audience_insight));
+        sec.appendChild(decompSection("💡 你的复刻 / 差异化切入点", a.your_angle));
+        sec.appendChild(decompSection("⚠️ 注意事项", a.caveats));
+        if (a.based_on) sec.appendChild(el("div", "decomp-based", "数据依据：" + a.based_on));
+        sec.appendChild(footActions({ back: () => backTo(2), backLabel: "返回视频" }));
+        showScreen(3, false);
+      } catch (e) {
+        hideThinking();
+        const msg = (e && e.message) || "";
+        const isConn = /Failed to fetch|NetworkError|network|请求失败|timeout|超时/i.test(msg);
+        if (isConn) { S.aiOnline = false; renderConn(); showToast("连不上后端服务，请刷新页面重试。"); }
+        else showToast(friendlyError(msg));
+        backTo(2);
+      }
+    })();
+  }
+
+  function decompSection(title, text) {
+    const box = el("div", "decomp-block");
+    box.appendChild(el("div", "decomp-block__title", title));
+    box.appendChild(el("div", "decomp-block__body", (text || "（暂无）")));
+    return box;
+  }
+  function decompList(title, arr) {
+    const box = el("div", "decomp-block");
+    box.appendChild(el("div", "decomp-block__title", title));
+    const ul = el("ul", "decomp-list");
+    const items = Array.isArray(arr) ? arr : (arr ? [arr] : []);
+    if (!items.length) ul.appendChild(el("li", "", "（暂无）"));
+    items.forEach((t) => ul.appendChild(el("li", "", t)));
+    box.appendChild(ul);
+    return box;
   }
 
   /* ---------------- 账号下拉 + 校验 ---------------- */
