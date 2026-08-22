@@ -587,12 +587,14 @@ body{font-family:var(--sf);color:var(--label);display:flex;justify-content:cente
 
   // 视频拆解页样式（动态注入，避免改动大段 CSS）
   document.head.insertAdjacentHTML("beforeend", `
-    /* ---- 拆解页：杂志式报告 ---- */
-    .decomp-report{display:flex;flex-direction:column;gap:18px}
-    .decomp-sec{animation:rv .55s cubic-bezier(.2,.7,.2,1) both}
+    /* ---- 拆解页：色块分区报告 ---- */
+    .decomp-report{display:flex;flex-direction:column;gap:16px}
+    .decomp-sec{border-radius:24px;padding:20px;animation:rv .55s cubic-bezier(.2,.7,.2,1) both;position:relative;overflow:hidden}
+    .decomp-sec::before{content:"";position:absolute;left:0;top:0;bottom:0;width:5px;border-radius:24px 0 0 24px}
 
-    /* ---- Hero 视频卡 ---- */
-    .decomp-hero{background:var(--glass-strong);backdrop-filter:blur(26px) saturate(160%);-webkit-backdrop-filter:blur(26px) saturate(160%);border:1px solid var(--stroke);border-radius:24px;padding:18px;box-shadow:inset 0 1px 2px rgba(255,255,255,.8),0 18px 44px rgba(90,30,40,.14)}
+    /* ---- Hero 视频卡：玻璃白 ---- */
+    .decomp-hero{background:var(--glass-strong);backdrop-filter:blur(26px) saturate(160%);-webkit-backdrop-filter:blur(26px) saturate(160%);border:1px solid var(--stroke);box-shadow:inset 0 1px 2px rgba(255,255,255,.8),0 18px 44px rgba(90,30,40,.14)}
+    .decomp-hero::before{display:none}
     .decomp-hero__top{display:flex;gap:16px;align-items:flex-start}
     .decomp-hero__cover{width:92px;height:92px;border-radius:18px;flex-shrink:0;overflow:hidden;background:linear-gradient(135deg,#FBEEEF,#F2D3D7);display:grid;place-items:center;box-shadow:inset 0 0 0 2px rgba(255,255,255,.7),0 8px 22px rgba(90,30,40,.18)}
     .decomp-hero__cover img{width:100%;height:100%;object-fit:cover;display:block}
@@ -605,50 +607,73 @@ body{font-family:var(--sf);color:var(--label);display:flex;justify-content:cente
     .decomp-hero__stats{display:flex;flex-wrap:wrap;gap:8px;margin-top:3px}
     .decomp-hero__stat{font-size:12px;font-weight:500;color:var(--label2);background:rgba(255,255,255,.5);border:1px solid var(--stroke);border-radius:999px;padding:4px 10px}
     .decomp-hero__stat b{color:var(--accent);font-weight:700;margin-right:3px}
-    .decomp-hero__bottom{display:flex;align-items:center;justify-content:space-between;margin-top:14px;padding-top:14px;border-top:1px solid rgba(255,255,255,.6)}
+    .decomp-hero__bottom{display:flex;align-items:center;justify-content:space-between;margin-top:16px;padding-top:14px;border-top:1px solid rgba(255,255,255,.6)}
     .decomp-hero__src{font-size:11px;color:var(--label3);font-weight:500}
     .decomp-hero__link{display:inline-flex;align-items:center;gap:5px;font-size:12px;font-weight:600;color:#fff;background:linear-gradient(135deg,var(--accent),var(--accent-2));border:none;border-radius:999px;padding:8px 15px;cursor:pointer;text-decoration:none;box-shadow:0 5px 14px rgba(180,49,65,.3);transition:transform .15s}
     .decomp-hero__link:active{transform:scale(.97)}
 
     /* ---- 通用小节标题 ---- */
-    .decomp-sec__head{display:flex;align-items:center;gap:10px;margin-bottom:12px}
-    .decomp-sec__num{width:26px;height:26px;border-radius:8px;display:grid;place-items:center;font-size:12px;font-weight:800;color:#fff;background:linear-gradient(135deg,var(--accent),var(--accent-2));box-shadow:0 4px 10px rgba(180,49,65,.25);flex-shrink:0}
-    .decomp-sec__title{font-size:15px;font-weight:700;letter-spacing:-.2px;color:var(--label)}
-    .decomp-sec__sub{font-size:12px;color:var(--label3);margin-left:auto;font-weight:500}
+    .decomp-sec__head{display:flex;align-items:center;gap:10px;margin-bottom:14px}
+    .decomp-sec__num{width:28px;height:28px;border-radius:9px;display:grid;place-items:center;font-size:12px;font-weight:800;color:#fff;box-shadow:0 4px 10px rgba(0,0,0,.12);flex-shrink:0}
+    .decomp-sec__title{font-size:16px;font-weight:700;letter-spacing:-.2px;color:var(--label)}
+    .decomp-sec__sub{font-size:12px;color:rgba(37,26,27,.45);margin-left:auto;font-weight:500}
 
-    /* ---- 核心洞察：大引用卡 ---- */
-    .decomp-insight{background:linear-gradient(135deg,rgba(180,49,65,.08),rgba(180,49,65,.03));border:1px solid rgba(180,49,65,.16);border-radius:22px;padding:18px;position:relative;overflow:hidden}
-    .decomp-insight::before{content:"";position:absolute;left:0;top:0;bottom:0;width:4px;background:linear-gradient(180deg,var(--accent),var(--accent-2))}
-    .decomp-insight__quote{font-size:16px;font-weight:600;line-height:1.6;color:var(--label);margin-bottom:14px}
+    /* ---- 01 核心洞察：珊瑚粉块 ---- */
+    .decomp-insight{background:linear-gradient(135deg,#FDE8E8 0%,#FCEFF0 100%);border:1px solid rgba(180,49,65,.14)}
+    .decomp-insight::before{background:linear-gradient(180deg,#D15563,#B43141)}
+    .decomp-insight .decomp-sec__num{background:linear-gradient(135deg,#D15563,#B43141)}
+    .decomp-insight__quote{font-size:17px;font-weight:700;line-height:1.55;color:#6E1420;margin-bottom:16px;letter-spacing:-.3px}
     .decomp-insight__cols{display:flex;flex-direction:column;gap:12px}
-    .decomp-insight__col{padding:12px 14px;background:var(--glass-strong);border:1px solid var(--stroke);border-radius:14px}
-    .decomp-insight__col .k{font-size:11px;font-weight:700;color:var(--accent);letter-spacing:.6px;margin-bottom:5px}
-    .decomp-insight__col .v{font-size:13px;line-height:1.6;color:var(--label)}
+    .decomp-insight__col{padding:13px 15px;background:rgba(255,255,255,.72);border:1px solid rgba(180,49,65,.12);border-radius:16px}
+    .decomp-insight__col .k{font-size:11px;font-weight:700;color:#B43141;letter-spacing:.6px;margin-bottom:5px}
+    .decomp-insight__col .v{font-size:13px;line-height:1.65;color:var(--label)}
+
+    /* ---- 02 内容结构：淡紫块 ---- */
+    .decomp-structure{background:linear-gradient(135deg,#F0EBF7 0%,#F7F3FB 100%);border:1px solid rgba(139,92,164,.14)}
+    .decomp-structure::before{background:linear-gradient(180deg,#9B7AB8,#7A579C)}
+    .decomp-structure .decomp-sec__num{background:linear-gradient(135deg,#9B7AB8,#7A579C)}
+    .decomp-structure .decomp-sec__title{color:#5A3D72}
+
+    /* ---- 03 可借鉴爆点：薄荷绿块 ---- */
+    .decomp-borrow{background:linear-gradient(135deg,#E8F6F0 0%,#EFFBF5 100%);border:1px solid rgba(46,125,107,.14)}
+    .decomp-borrow::before{background:linear-gradient(180deg,#5CB89A,#2E7D6B)}
+    .decomp-borrow .decomp-sec__num{background:linear-gradient(135deg,#5CB89A,#2E7D6B)}
+    .decomp-borrow .decomp-sec__title{color:#1E5246}
+
+    /* ---- 04 执行建议：暖黄块 ---- */
+    .decomp-actions{background:linear-gradient(135deg,#FDF6E8 0%,#FEFBEF 100%);border:1px solid rgba(200,150,60,.18)}
+    .decomp-actions::before{background:linear-gradient(180deg,#E6B84D,#C8922D)}
+    .decomp-actions .decomp-sec__num{background:linear-gradient(135deg,#E6B84D,#C8922D)}
+    .decomp-actions .decomp-sec__title{color:#6B4E16}
+    .decomp-action{background:rgba(255,255,255,.72);border:1px solid rgba(200,150,60,.14);border-radius:18px;padding:16px}
+    .decomp-action__k{font-size:11px;font-weight:700;letter-spacing:.6px;color:#A3701A;margin-bottom:8px}
+    .decomp-action__v{font-size:14px;line-height:1.75;color:var(--label);white-space:pre-wrap;word-break:break-word}
+
+    /* ---- 05 注意事项：淡蓝块 ---- */
+    .decomp-caveat{background:linear-gradient(135deg,#E8F1FA 0%,#F0F7FE 100%);border:1px solid rgba(70,130,180,.14)}
+    .decomp-caveat::before{background:linear-gradient(180deg,#6FA3D4,#4682B4)}
+    .decomp-caveat .decomp-sec__num{background:linear-gradient(135deg,#6FA3D4,#4682B4)}
+    .decomp-caveat__head{font-size:12px;font-weight:700;color:#2F5F8A;margin-bottom:6px}
+    .decomp-caveat__body{font-size:13px;line-height:1.75;color:var(--label2)}
+
+    /* ---- 长文本自动拆分为 bullet ---- */
+    .decomp-textlist{list-style:none;display:flex;flex-direction:column;gap:10px;margin:0;padding:0}
+    .decomp-textlist li{position:relative;padding-left:16px;font-size:13px;line-height:1.7;color:var(--label)}
+    .decomp-textlist li::before{content:"";position:absolute;left:0;top:8px;width:6px;height:6px;border-radius:50%;background:currentColor;opacity:.35}
 
     /* ---- 内容结构：时间线 ---- */
-    .decomp-flow{display:flex;flex-direction:column;gap:0;position:relative;padding-left:14px}
-    .decomp-flow::before{content:"";position:absolute;left:22px;top:8px;bottom:18px;width:1.5px;background:linear-gradient(180deg,rgba(180,49,65,.35),rgba(180,49,65,.1));border-radius:1px}
-    .decomp-flow__item{position:relative;padding:0 0 20px 38px}
+    .decomp-flow{display:flex;flex-direction:column;gap:0;position:relative;padding-left:8px}
+    .decomp-flow::before{content:"";position:absolute;left:20px;top:10px;bottom:20px;width:2px;background:linear-gradient(180deg,rgba(123,90,156,.45),rgba(123,90,156,.1));border-radius:1px}
+    .decomp-flow__item{position:relative;padding:0 0 22px 42px}
     .decomp-flow__item:last-child{padding-bottom:0}
-    .decomp-flow__dot{position:absolute;left:0;top:0;width:26px;height:26px;border-radius:50%;display:grid;place-items:center;font-size:11px;font-weight:800;color:#fff;background:linear-gradient(135deg,var(--accent),var(--accent-2));box-shadow:0 4px 12px rgba(180,49,65,.3),inset 0 1px 1px rgba(255,255,255,.5)}
-    .decomp-flow__text{font-size:14px;line-height:1.65;color:var(--label);padding-top:3px}
+    .decomp-flow__dot{position:absolute;left:0;top:0;width:28px;height:28px;border-radius:50%;display:grid;place-items:center;font-size:12px;font-weight:800;color:#fff;background:linear-gradient(135deg,#9B7AB8,#7A579C);box-shadow:0 4px 12px rgba(123,90,156,.3),inset 0 1px 1px rgba(255,255,255,.5)}
+    .decomp-flow__text{font-size:14px;line-height:1.7;color:var(--label);padding-top:4px}
     .decomp-flow__text b{font-weight:600}
 
     /* ---- 可借鉴爆点：2列网格 ---- */
     .decomp-highlights{display:grid;grid-template-columns:1fr 1fr;gap:10px}
-    .decomp-hl{display:flex;align-items:flex-start;gap:9px;font-size:13px;line-height:1.55;color:var(--label);background:rgba(255,255,255,.55);border:1px solid var(--stroke);border-radius:14px;padding:12px;box-shadow:inset 0 1px 1px rgba(255,255,255,.7)}
-    .decomp-hl::before{content:"";width:6px;height:6px;border-radius:50%;background:var(--accent);margin-top:6px;flex-shrink:0}
-
-    /* ---- 执行建议：双栏 ---- */
-    .decomp-actions{display:grid;grid-template-columns:1fr;gap:10px}
-    .decomp-action{background:var(--glass);border:1px solid var(--stroke);border-radius:18px;padding:16px;box-shadow:inset 0 1px 1px rgba(255,255,255,.6),0 8px 22px rgba(90,30,40,.1)}
-    .decomp-action__k{font-size:11px;font-weight:700;letter-spacing:.6px;color:var(--accent);margin-bottom:8px}
-    .decomp-action__v{font-size:14px;line-height:1.7;color:var(--label);white-space:pre-wrap;word-break:break-word}
-
-    /* ---- 注意事项 ---- */
-    .decomp-caveat{background:rgba(180,49,65,.04);border:1px solid rgba(180,49,65,.12);border-radius:16px;padding:13px 15px}
-    .decomp-caveat__head{font-size:12px;font-weight:700;color:var(--accent);margin-bottom:6px}
-    .decomp-caveat__body{font-size:13px;line-height:1.65;color:var(--label2)}
+    .decomp-hl{display:flex;align-items:flex-start;gap:9px;font-size:13px;line-height:1.55;color:var(--label);background:rgba(255,255,255,.7);border:1px solid rgba(46,125,107,.12);border-radius:16px;padding:13px;box-shadow:inset 0 1px 1px rgba(255,255,255,.8)}
+    .decomp-hl::before{content:"";width:6px;height:6px;border-radius:50%;background:#2E7D6B;margin-top:6px;flex-shrink:0}
 
     /* ---- 数据依据 ---- */
     .decomp-footnote{font-size:11px;line-height:1.6;color:var(--label3);margin:2px 2px 6px;text-align:center}
@@ -1189,13 +1214,13 @@ body{font-family:var(--sf);color:var(--label);display:flex;justify-content:cente
         // 02 内容结构：用时间线呈现
         const structure = normalizeList(a.structure);
         if (structure.length) {
-          report.appendChild(decompSection(n++, "内容结构", "视频如何一步步推进", decompFlow(structure)));
+          report.appendChild(decompSection(n++, "内容结构", "视频如何一步步推进", decompFlow(structure), "decomp-structure"));
         }
 
         // 03 可借鉴爆点：2列网格
         const borrowable = normalizeList(a.borrowable);
         if (borrowable.length) {
-          report.appendChild(decompSection(n++, "可借鉴的爆点 / 手法", "值得复用的创作技巧", decompHighlights(borrowable)));
+          report.appendChild(decompSection(n++, "可借鉴的爆点 / 手法", "值得复用的创作技巧", decompHighlights(borrowable), "decomp-borrow"));
         }
 
         // 04 执行建议：受众 + 差异化 双栏
@@ -1286,8 +1311,37 @@ body{font-family:var(--sf);color:var(--label);display:flex;justify-content:cente
     return s;
   }
 
-  function decompSection(num, title, sub, child) {
-    const sec = el("div", "decomp-sec reveal");
+  function splitSentences(text) {
+    if (!text) return [];
+    return String(text)
+      .replace(/([。！？；]\s*)/g, "$1\n")
+      .split(/\n/)
+      .map((s) => s.trim().replace(/[。；]+$/g, ""))
+      .filter(Boolean);
+  }
+
+  function decompBody(text, useList, className) {
+    if (!text) {
+      const empty = el("div", className || "");
+      empty.textContent = "（暂无）";
+      return empty;
+    }
+    const sentences = splitSentences(text);
+    if (useList && sentences.length > 1) {
+      const ulCls = "decomp-textlist" + (className ? " " + className : "");
+      const ul = el("ul", ulCls);
+      sentences.forEach((s) => ul.appendChild(el("li", "", s)));
+      return ul;
+    }
+    const div = el("div", className || "");
+    div.textContent = text;
+    div.style.lineHeight = "1.75";
+    return div;
+  }
+
+  function decompSection(num, title, sub, child, className) {
+    const cls = "decomp-sec reveal" + (className ? " " + className : "");
+    const sec = el("div", cls);
     sec.style.animationDelay = (num * 0.06) + "s";
     const head = el("div", "decomp-sec__head");
     head.appendChild(el("div", "decomp-sec__num", String(num)));
@@ -1308,16 +1362,16 @@ body{font-family:var(--sf);color:var(--label);display:flex;justify-content:cente
     if (positioning && hook) {
       const c1 = el("div", "decomp-insight__col");
       c1.appendChild(el("div", "k", "一句话定位"));
-      c1.appendChild(el("div", "v", escapeHtml(positioning)));
+      c1.appendChild(decompBody(positioning, false));
       cols.appendChild(c1);
       const c2 = el("div", "decomp-insight__col");
       c2.appendChild(el("div", "k", "开头钩子"));
-      c2.appendChild(el("div", "v", escapeHtml(hook)));
+      c2.appendChild(decompBody(hook, false));
       cols.appendChild(c2);
     } else if (hook) {
       const c1 = el("div", "decomp-insight__col");
       c1.appendChild(el("div", "k", "开头钩子"));
-      c1.appendChild(el("div", "v", escapeHtml(hook)));
+      c1.appendChild(decompBody(hook, false));
       cols.appendChild(c1);
     }
     if (cols.childNodes.length) box.appendChild(cols);
@@ -1337,13 +1391,13 @@ body{font-family:var(--sf);color:var(--label);display:flex;justify-content:cente
     if (audience) {
       const a = el("div", "decomp-action");
       a.appendChild(el("div", "decomp-action__k", "目标受众"));
-      a.appendChild(el("div", "decomp-action__v", escapeHtml(audience)));
+      a.appendChild(decompBody(audience, true, "decomp-action__v"));
       box.appendChild(a);
     }
     if (angle) {
       const a = el("div", "decomp-action");
       a.appendChild(el("div", "decomp-action__k", "你的复刻 / 差异化切入点"));
-      a.appendChild(el("div", "decomp-action__v", escapeHtml(angle)));
+      a.appendChild(decompBody(angle, true, "decomp-action__v"));
       box.appendChild(a);
     }
     return box;
@@ -1352,8 +1406,11 @@ body{font-family:var(--sf);color:var(--label);display:flex;justify-content:cente
   function decompCaveat(text, num) {
     const box = el("div", "decomp-caveat decomp-sec reveal");
     box.style.animationDelay = (num * 0.06) + "s";
-    box.appendChild(el("div", "decomp-caveat__head", "注意事项"));
-    box.appendChild(el("div", "decomp-caveat__body", escapeHtml(text)));
+    const head = el("div", "decomp-sec__head");
+    head.appendChild(el("div", "decomp-sec__num", String(num)));
+    head.appendChild(el("div", "decomp-sec__title", "注意事项"));
+    box.appendChild(head);
+    box.appendChild(decompBody(text, true, "decomp-caveat__body"));
     return box;
   }
 
