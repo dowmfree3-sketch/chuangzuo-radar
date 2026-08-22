@@ -71,6 +71,14 @@ OPENROUTER_FALLBACK_MODELS = (os.getenv("OPENROUTER_FALLBACK_MODELS") or
     "google/gemma-4-26b-a4b-it:free,openai/gpt-oss-20b:free,z-ai/glm-5.2:free").strip()
 OPENROUTER_URL = "https://openrouter.ai/api/v1/chat/completions"
 
+# ----------------------------- 通用 OpenAI 兼容提供商（优先于 OpenRouter） -----------------------------
+# 配置后，所有 AI 调用（understand/rank/analyze/script/agent）都走这个提供商，不依赖 OpenRouter 额度。
+# 适用于 SiliconFlow / 智谱 / DeepSeek 等国内免费平台（接口均为 OpenAI 兼容）。
+AI_BASE_URL = os.getenv("AI_BASE_URL", "").strip()  # 如 https://api.siliconflow.cn/v1
+AI_API_KEY = os.getenv("AI_API_KEY", "").strip()
+AI_MODEL = os.getenv("AI_MODEL", "").strip()         # 如 Qwen/Qwen2.5-7B-Instruct
+AI_CHAT_PATH = os.getenv("AI_CHAT_PATH", "/chat/completions").strip()
+
 
 # ----------------------------- 日志（绝不记录 Key） -----------------------------
 TAVILY_API_KEY = os.getenv("TAVILY_API_KEY", "").strip()
@@ -201,6 +209,21 @@ def openrouter_json(system_prompt, user_prompt, expect="object", max_tokens=1500
       其他错（如格式异常）直接换下一个模型。
     - 全部为 :free 模型，绝不降级到付费模型。
     """
+    if AI_BASE_URL and AI_API_KEY and AI_MODEL:
+        msg = _custom_provider_chat(
+            [{"role": "system", "content": system_prompt},
+             {"role": "user", "content": user_prompt}],
+            None, max_tokens)
+        content = (msg.get("content") or "").strip()
+        if not content:
+            raise RuntimeError("AI 返回为空")
+        parsed = _parse_json_from_text(content)
+        if expect == "array" and not isinstance(parsed, list):
+            raise RuntimeError("AI 输出不是数组")
+        if expect == "object" and not isinstance(parsed, dict):
+            raise RuntimeError("AI 输出不是对象")
+        return parsed
+
     if not OPENROUTER_API_KEY:
         raise RuntimeError("AI 服务尚未配置（缺少 OPENROUTER_API_KEY）")
 
@@ -227,11 +250,38 @@ def openrouter_json(system_prompt, user_prompt, expect="object", max_tokens=1500
     raise RuntimeError("AI 服务暂时不可用（所有免费模型均失败：%s）" % last_err)
 
 
-def openrouter_chat(messages, tools=None, max_tokens=1500):
-    """通用对话补全（支持 OpenAI 风格 tools/function calling）。
-
-    返回原始 choices[0].message（含可能的 tool_calls）。失败抛 RuntimeError。
+def _custom_provider_chat(messages, tools=None, max_tokens=1500):
+    """通用 OpenAI 兼容提供商（SiliconFlow/智谱/DeepSeek 等）的对话补全。
+    返回 choices[0].message。失败抛 RuntimeError。
     """
+    if not (AI_BASE_URL and AI_API_KEY and AI_MODEL):
+        raise RuntimeError("通用 AI 提供商未配置")
+    url = AI_BASE_URL.rstrip("/") + AI_CHAT_PATH
+    body = {"model": AI_MODEL, "messages": messages, "temperature": 0.4, "max_tokens": max_tokens}
+    if tools:
+        body["tools"] = tools
+        body["tool_choice"] = "auto"
+    headers = {"Content-Type": "application/json", "Authorization": "Bearer " + AI_API_KEY}
+    req = urllib.request.Request(url, data=json.dumps(body).encode("utf-8"), headers=headers, method="POST")
+    try:
+        with urllib.request.urlopen(req, timeout=120) as resp:
+            data = json.loads(resp.read().decode("utf-8"))
+        return data["choices"][0]["message"]
+    except urllib.error.HTTPError as e:
+        err_body = ""
+        try:
+            err_body = e.read().decode()
+        except Exception:
+            pass
+        raise RuntimeError("AI HTTP %s: %s" % (e.code, err_body[:200]))
+    except (urllib.error.URLError, socket.timeout) as e:
+        raise RuntimeError("AI 网络错误(%s)" % (getattr(e, "reason", e)))
+
+
+def openrouter_chat(messages, tools=None, max_tokens=1500):
+    """通用对话补全。配置了通用提供商时优先走它，否则走 OpenRouter。"""
+    if AI_BASE_URL and AI_API_KEY and AI_MODEL:
+        return _custom_provider_chat(messages, tools, max_tokens)
     if not OPENROUTER_API_KEY:
         raise RuntimeError("AI 服务尚未配置（缺少 OPENROUTER_API_KEY）")
     chain = _ai_model_chain()
@@ -277,15 +327,26 @@ def openrouter_chat(messages, tools=None, max_tokens=1500):
 # 工具直接复用本文件的业务函数（handle_search / handle_analyze_video / handle_generate_script）。
 
 AGENT_SYSTEM = (
-    "你是「创作雷达」内容创作智能体。你的任务是帮助用户把一个模糊的创作想法，"
-    "自主完成：① 在 B站搜索相关视频；② 挑选一条最值得参考的视频做拆解（爆点/结构分析）；"
-    "③ 基于拆解生成可执行的短视频脚本与内容策略。\n"
-    "你拥有以下工具，请像真人创作者一样自主判断每一步该调用哪个工具，并在回复里用自然语言"
-    "向用户解释你为什么要这么做（例如：『我先去 B站搜一下「游戏」相关的视频』）。\n"
-    "工作流程建议：先调用 search_bilibili 搜索；拿到结果后挑选一条最相关的视频，"
-    "调用 analyze_video 拆解它；最后调用 generate_script 产出脚本。\n"
-    "如果用户想法太模糊，可以先向用户追问一个关键问题（用普通文字回复，不调工具）。\n"
-    "所有回复用中文，简洁、有「创作者口吻」。不要编造视频数据。"
+    "你是「创作雷达」内容创作智能体。用户给你一个模糊的创作想法，你要自主完成："
+    "① 在 B站搜索相关视频；② 挑一条最值得参考的视频做拆解；③ 基于拆解生成短视频脚本与内容策略。\n\n"
+    "你有三个工具，通过【文本协议】调用。需要调用工具时，你的回复里必须包含一个如下格式的块（注意 args 是对象，不是字符串）：\n"
+    "<<TOOL>>\n"
+    "{\"name\":\"工具名\",\"args\":{\"参数\":\"值\"}}\n"
+    "<<END>>\n\n"
+    "调用示例（完整照抄格式）：\n"
+    "我先去 B站搜一下。\n"
+    "<<TOOL>>\n"
+    "{\"name\":\"search_bilibili\",\"args\":{\"query\":\"游戏\"}}\n"
+    "<<END>>\n\n"
+    "工具1：search_bilibili —— args {\"query\":\"检索关键词\"}，返回 B站视频列表。\n"
+    "工具2：analyze_video —— args {\"title\":\"视频标题\",\"author\":\"作者\",\"url\":\"链接\",\"description\":\"摘要\"}，返回拆解结论。\n"
+    "工具3：generate_script —— args {\"title\":\"参考视频标题\",\"analysis\":{拆解结论对象},\"idea\":\"用户想法\"}，返回内容策略与脚本。\n\n"
+    "规则：\n"
+    "- 调用工具前，先用一句自然语言说明你要做什么（例如『我先去 B站搜一下「游戏」相关的视频』），再在下面输出 <<TOOL>> 块。\n"
+    "- 拿到工具结果后，继续判断下一步：调下一个工具还是给最终回复。\n"
+    "- 不需要工具时，直接用自然语言回复（不要输出 <<TOOL>> 块）。\n"
+    "- 如果用户想法太模糊，先追问一个关键问题，不要乱搜。\n"
+    "- 绝不编造视频数据；所有内容用中文，有创作者口吻。"
 )
 
 AGENT_TOOLS = [
@@ -388,8 +449,8 @@ def handle_agent_chat(data):
       {"type":"tool_result","name":...,"result":{...},"artifact":{...}}  工具结果
       {"type":"error","text":"..."}
     """
-    if not OPENROUTER_API_KEY:
-        return {"events": [{"type": "error", "text": "AI 服务尚未配置（缺少 OPENROUTER_API_KEY），智能体无法运行。"}], "done": True}
+    if not (AI_API_KEY or OPENROUTER_API_KEY):
+        return {"events": [{"type": "error", "text": "AI 服务尚未配置（缺少 AI_API_KEY / OPENROUTER_API_KEY），智能体无法运行。"}], "done": True}
 
     messages = list(data.get("messages") or [])
     if not messages:
@@ -400,38 +461,69 @@ def handle_agent_chat(data):
     events = []
     ctx = {"accountContext": data.get("accountContext") or {}, "idea": data.get("idea") or ""}
     max_rounds = 6  # 防止无限工具循环
+
+    def extract_tool_call(text):
+        """从模型输出里提取 <<TOOL>> 后的 JSON 工具调用。返回 (thought, call_dict_or_None)。"""
+        import re as _re
+        idx = text.find("<<TOOL>>")
+        if idx < 0:
+            return text.strip(), None
+        thought = text[:idx].strip()
+        rest = text[idx + len("<<TOOL>>"):]
+        end_idx = rest.find("<<END>>")
+        if end_idx >= 0:
+            rest = rest[:end_idx]
+        try:
+            call = _parse_json_from_text(rest)
+        except Exception:
+            call = None
+        # 兜底：JSON 不规范时，用正则提取 name 与 query 等常见参数
+        if not call:
+            nm = _re.search(r'"name"\s*:\s*"([^"]+)"', rest)
+            if nm:
+                name = nm.group(1)
+                args = {}
+                for k in ("query", "title", "author", "url", "description", "idea"):
+                    mm = _re.search(r'"%s"\s*:\s*"([^"]*)"' % k, rest)
+                    if mm:
+                        args[k] = mm.group(1)
+                call = {"name": name, "args": args}
+        return thought, call
+
     for _ in range(max_rounds):
         try:
-            msg = openrouter_chat(messages, tools=AGENT_TOOLS, max_tokens=1200)
+            msg = openrouter_chat(messages, None, max_tokens=1200)
         except RuntimeError as e:
             events.append({"type": "error", "text": "AI 调用失败：" + str(e)})
             break
-        messages.append(msg)
-        tool_calls = msg.get("tool_calls") or []
-        if not tool_calls:
-            content = (msg.get("content") or "").strip()
+        content = (msg.get("content") or "").strip()
+        messages.append({"role": "assistant", "content": content})
+        thought, call = extract_tool_call(content)
+        if not call:
+            # 没有工具调用 = 最终自然语言回复
             if content:
                 events.append({"type": "thought", "text": content})
             break
-        for tc in tool_calls:
-            fn = tc.get("function") or {}
-            name = fn.get("name", "")
+        if thought:
+            events.append({"type": "thought", "text": thought})
+        name = call.get("name", "")
+        args = call.get("args") or call.get("arguments") or {}
+        # 兼容 args 被模型写成 JSON 字符串的情况
+        if isinstance(args, str):
             try:
-                args = json.loads(fn.get("arguments") or "{}")
+                args = json.loads(args)
             except Exception:
-                args = {}
-            events.append({"type": "tool", "name": name, "args": args})
-            result, artifact = _exec_agent_tool(name, args, ctx)
-            events.append({"type": "tool_result", "name": name, "result": result, "artifact": artifact})
-            messages.append({
-                "role": "tool",
-                "tool_call_id": tc.get("id"),
-                "content": json.dumps(result, ensure_ascii=False),
-            })
-            if name == "search_bilibili" and not ctx.get("intent", {}).get("theme"):
-                ctx["intent"] = {"theme": args.get("query", "")}
-            if name == "analyze_video" and not ctx.get("idea"):
-                ctx["idea"] = args.get("title", "")
+                args = {"_raw": args}
+        events.append({"type": "tool", "name": name, "args": args})
+        result, artifact = _exec_agent_tool(name, args, ctx)
+        events.append({"type": "tool_result", "name": name, "result": result, "artifact": artifact})
+        # 工具结果以 user 消息回灌（文本协议，不依赖 role=tool）
+        messages.append({"role": "user", "content": "工具结果：\n" + json.dumps(result, ensure_ascii=False) +
+                         "\n请根据结果继续（需要下一个工具就输出 <<TOOL>> 块，否则直接回复用户）。"})
+        if name == "search_bilibili" and not ctx.get("intent", {}).get("theme"):
+            ctx["intent"] = {"theme": args.get("query", "")}
+        if name == "analyze_video" and not ctx.get("idea"):
+            ctx["idea"] = args.get("title", "")
     else:
         events.append({"type": "thought", "text": "（已达到最大步骤数，流程自动结束。你可以继续提问。）"})
 
@@ -869,9 +961,11 @@ def handle_generate_script(data):
 
 
 def handle_ai_status():
+    use_custom = bool(AI_BASE_URL and AI_API_KEY and AI_MODEL)
     return {
-        "online": bool(OPENROUTER_API_KEY),
-        "model": OPENROUTER_MODEL if OPENROUTER_API_KEY else "",
+        "online": bool((use_custom and AI_API_KEY) or OPENROUTER_API_KEY),
+        "model": (AI_MODEL if use_custom else OPENROUTER_MODEL) if (AI_API_KEY or OPENROUTER_API_KEY) else "",
+        "provider": "custom" if use_custom else "openrouter",
         "xhs_source": (os.getenv("XHS_PROVIDER") or "none").strip().lower() != "none",
     }
 
