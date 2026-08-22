@@ -50,6 +50,7 @@ import re
 import json
 import html
 import time
+import hashlib
 import urllib.request
 import urllib.parse
 import urllib.error
@@ -628,6 +629,147 @@ PROVIDERS = {
 }
 
 
+# ---------------------------------------------------------------------------
+# Bilibili 数据源（B站官方搜索 API，返回结构化真实视频，无需活体核验兜底）
+# ---------------------------------------------------------------------------
+_BILI_WBI_KEYS = {"img": None, "sub": None}
+
+
+def _bili_ensure_wbi():
+    """拉取 B站 wbi 签名所需的 img/sub key（带模块级缓存）。"""
+    if _BILI_WBI_KEYS["img"] and _BILI_WBI_KEYS["sub"]:
+        return _BILI_WBI_KEYS["img"], _BILI_WBI_KEYS["sub"]
+    headers = {"User-Agent": _DEFA700_UA, "Referer": "https://www.bilibili.com"}
+    try:
+        data = _http_get_json("https://api.bilibili.com/x/web-interface/nav", headers)
+        wbi = (data.get("data") or {}).get("wbi_img") or {}
+        img = (wbi.get("img_url") or "").rsplit("/", 1)[-1].split(".")[0]
+        sub = (wbi.get("sub_url") or "").rsplit("/", 1)[-1].split(".")[0]
+        if img and sub:
+            _BILI_WBI_KEYS["img"], _BILI_WBI_KEYS["sub"] = img, sub
+    except Exception:
+        pass
+    return _BILI_WBI_KEYS["img"], _BILI_WBI_KEYS["sub"]
+
+
+_MIXIN_KEY_ENC_TABLE = [
+    46, 47, 18, 2, 53, 8, 23, 32, 15, 50, 10, 31, 58, 3, 45, 35,
+    27, 43, 5, 49, 33, 9, 42, 19, 29, 28, 14, 39, 12, 38, 41, 13,
+    37, 48, 7, 16, 24, 55, 40, 61, 26, 17, 6, 60, 21, 59, 4, 58,
+    1, 36, 57, 0, 25, 34, 56, 27, 20, 18, 51, 54, 0, 21, 51, 44,
+    8, 58, 47, 33, 43, 38, 33, 45, 13, 38,
+]
+
+
+def _bili_sign(params):
+    """对查询参数做 wbi 签名，返回带 w_rid/wts 的新参数字典。"""
+    img, sub = _bili_ensure_wbi()
+    if not (img and sub):
+        # 拿不到 key 也无妨：部分接口在不签名的降级情况下仍可返回数据
+        params = dict(params)
+        params["wts"] = int(time.time())
+        return params
+    raw = img + sub
+    mixin = "".join(raw[i] for i in _MIXIN_KEY_ENC_TABLE[:32])
+    params = dict(params)
+    params["wts"] = int(time.time())
+    ordered = dict(sorted(params.items()))
+    query = urllib.parse.urlencode(ordered)
+    params["w_rid"] = hashlib.md5((query + mixin).encode("utf-8")).hexdigest()
+    return params
+
+
+def _bili_strip_title(title):
+    """B站搜索结果标题含 <em class="keyword"> 高亮标签，移除标签并还原文本。"""
+    if not title:
+        return ""
+    title = re.sub(r"</?em[^>]*>", "", title)
+    return html.unescape(title).strip()
+
+
+def _bili_duration(sec):
+    try:
+        sec = int(sec)
+    except (TypeError, ValueError):
+        return ""
+    m, s = divmod(sec, 60)
+    if m >= 60:
+        h, m = divmod(m, 60)
+        return "%d:%02d:%02d" % (h, m, s)
+    return "%d:%02d" % (m, s)
+
+
+def _provider_bilibili(query, limit):
+    """通过 B站官方搜索 API 检索视频（结构化真实数据，无需 Mock / 活体核验）。
+
+    返回 CONTRACT 约定结构；cover 字段为 B站 pic URL（http->https 修正），
+    便于前端直接展示封面。平台标记为 bilibili。
+    """
+    params = {
+        "search_type": "video",
+        "keyword": query,
+        "page": 1,
+        "pagesize": min(int(limit) * 2, 36),
+        "order": "totalrank",
+    }
+    signed = _bili_sign(params)
+    url = "https://api.bilibili.com/x/web-interface/wbi/search/type?" + urllib.parse.urlencode(signed)
+    headers = {
+        "User-Agent": _DEFA700_UA,
+        "Referer": "https://search.bilibili.com",
+        "Accept": "application/json",
+    }
+    try:
+        data = _http_get_json(url, headers, timeout=15)
+    except urllib.error.HTTPError as e:
+        raise XHSSourceUnavailable("B站检索失败（HTTP %s）" % e.code)
+    except Exception as e:
+        raise XHSSourceUnavailable("B站检索暂时不可用：%s" % e)
+
+    if (data.get("code") not in (0, None)) and "data" not in data:
+        raise XHSSourceUnavailable("B站检索返回异常：%s" % (data.get("message") or data.get("code")))
+
+    results = ((data.get("data") or {}).get("result") or [])
+    out = []
+    for it in results:
+        bvid = it.get("bvid") or it.get("id")
+        title = _bili_strip_title(it.get("title"))
+        if not title:
+            continue
+        cover = (it.get("pic") or "").replace("http://", "https://")
+        play = it.get("play") or it.get("view") or 0
+        duration = _bili_duration(it.get("duration") or it.get("dur") or 0)
+        pub = it.get("pubdate") or it.get("senddate") or ""
+        if pub:
+            try:
+                import datetime
+                pub = datetime.datetime.fromtimestamp(int(pub)).strftime("%Y-%m-%d")
+            except Exception:
+                pass
+        out.append({
+            "id": str(bvid or it.get("aid") or cover),
+            "platform": "bilibili",
+            "title": title,
+            "author": it.get("author") or it.get("upname") or "",
+            "url": it.get("arcurl") or ("https://www.bilibili.com/video/" + bvid if bvid else ""),
+            "cover": cover,
+            "type": "video",
+            "publishedAt": str(pub),
+            "likes": None,
+            "collects": None,
+            "comments": None,
+            "play": play,
+            "duration": duration,
+            "videoUrl": "",
+            "description": (it.get("description") or "")[:300],
+        })
+    return {"results": out}
+
+
+# 注册 B站 provider（函数定义见上）；B站返回结构化真实视频，无需活体核验兜底。
+PROVIDERS["bilibili"] = _provider_bilibili
+
+
 def _extract_items(raw):
     """从 provider 响应里取出笔记列表。"""
     if isinstance(raw, list):
@@ -650,7 +792,7 @@ def _normalize(item):
     ntype = (item.get("type") or "").lower()
     return {
         "id": str(item.get("id") or item.get("note_id") or item.get("url") or ""),
-        "platform": "xiaohongshu",
+        "platform": item.get("platform") or "xiaohongshu",
         "title": item.get("title") or "",
         "author": item.get("author") or item.get("nickname") or "",
         "url": item.get("url") or item.get("note_url") or "",
@@ -696,12 +838,12 @@ def search_videos(query, limit=15):
         return vis
 
     # 免费检索源：多源并行合并召回，不再"有一个源有结果就停"，
-    # 而是把配置源 + 兜底源的结果合并去重后统一活体核验，最大化真实视频召回。
+    # 而是把配置源 + 兜底源的结果合并去重后统一核验，最大化真实视频召回。
     order = []
-    if provider in ("tavily", "ddg"):
-        order = [provider, "ddg", "tavily"]
+    if provider in ("tavily", "ddg", "bilibili"):
+        order = [provider, "bilibili", "ddg", "tavily"]
     else:
-        order = ["ddg", "tavily"]
+        order = ["bilibili", "ddg", "tavily"]
     order = [p for p in order if p in PROVIDERS]
     # 去重（配置源与兜底源可能相同）
     order = list(dict.fromkeys(order))
@@ -743,16 +885,19 @@ def search_videos(query, limit=15):
             continue
 
     if all_items:
-        # 活体核验：并发抓取候选笔记页，过滤「不存在的死链」与
-        # 「图文冒充视频」的虚假条目，并拿到更可靠的真实标题。
+        # 平台相关核验：小红书候选做活体核验（过滤死链/图文冒充）；
+        # B站候选已是结构化真实视频，无需核验，直接保留真实元数据。
         def _verify_one(u):
-            v = _verify_xhs_note(u.get("url"))
-            if not v.get("verified") or not v.get("title"):
-                # 核验失败 / 无标题：轻量再抓一次标题兜底
-                rt = _fetch_xhs_title(u.get("url"))
-                if rt:
-                    v["title"] = rt
-            u["_verify"] = v
+            if u.get("platform") == "xiaohongshu":
+                v = _verify_xhs_note(u.get("url"))
+                if not v.get("verified") or not v.get("title"):
+                    rt = _fetch_xhs_title(u.get("url"))
+                    if rt:
+                        v["title"] = rt
+                u["_verify"] = v
+            else:
+                u["_verify"] = {"verified": True, "alive": True, "is_video": True,
+                                "title": u.get("title") or ""}
 
         with ThreadPoolExecutor(max_workers=min(8, len(all_items))) as ex:
             list(ex.map(_verify_one, all_items))
@@ -768,9 +913,8 @@ def search_videos(query, limit=15):
     if last_err:
         raise last_err
     raise XHSSourceUnavailable(
-        "未在真实数据源中找到与「%s」相关的小红书视频笔记。"
-        "免费检索源（Tavily / DuckDuckGo）当前对小红书单篇笔记的覆盖与相关性都很有限："
-        "Tavily 仅收录聚合页、DDG 仅返回少量热门笔记且不按关键词检索。"
-        "如需稳定检索相关视频，请接入 XHS_PROVIDER=rest 并配置 XHS_REST_BASE 指向合规的小红书内容接口。"
+        "未在真实数据源中找到与「%s」相关的视频内容。"
+        "当前检索源（B站 / Tavily / DuckDuckGo）对该主题覆盖有限："
+        "如需稳定检索相关视频，可接入 XHS_PROVIDER=rest 并配置 XHS_REST_BASE 指向合规内容接口。"
         % (query or "").strip()
     )

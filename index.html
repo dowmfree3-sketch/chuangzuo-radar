@@ -923,7 +923,8 @@ body{font-family:var(--sf);color:var(--label);display:flex;justify-content:cente
     meta.appendChild(el("span", "vauthor", v.author || "暂无数据"));
     if (v.publishedAt) meta.appendChild(el("span", "vdate", v.publishedAt));
     tcol.appendChild(meta);
-    tcol.appendChild(el("span", "vtype", "📹 视频笔记"));
+    const platLabel = v.platform === "bilibili" ? "📺 B站视频" : "📹 视频笔记";
+    tcol.appendChild(el("span", "vtype", platLabel));
     top.appendChild(tcol);
 
     const rs = v.relevance_score != null ? v.relevance_score : 0;
@@ -942,9 +943,14 @@ body{font-family:var(--sf);color:var(--label);display:flex;justify-content:cente
     node.appendChild(why);
 
     const stats = el("div", "vstats");
-    stats.appendChild(statChip("👍 赞", v.likes));
-    stats.appendChild(statChip("⭐ 收藏", v.collects));
-    stats.appendChild(statChip("💬 评论", v.comments));
+    if (v.platform === "bilibili") {
+      stats.appendChild(statChip("▶ 播放", v.play));
+      stats.appendChild(statChip("⏱ 时长", v.duration));
+    } else {
+      stats.appendChild(statChip("👍 赞", v.likes));
+      stats.appendChild(statChip("⭐ 收藏", v.collects));
+      stats.appendChild(statChip("💬 评论", v.comments));
+    }
     node.appendChild(stats);
 
     if (tags && tags.length) {
@@ -954,10 +960,13 @@ body{font-family:var(--sf);color:var(--label);display:flex;justify-content:cente
     }
 
     if (v.url) {
-      const note = el("div", "vnote", "在小红书 App / 网页登录账号后可观看；部分笔记需登录才能打开。");
+      const note = el("div", "vnote",
+        v.platform === "bilibili"
+          ? "在 B站 App / 网页可直接观看，无需登录。"
+          : "在小红书 App / 网页登录账号后可观看；部分笔记需登录才能打开。");
       node.appendChild(note);
       const btn = el("a", "vbtn");
-      btn.innerHTML = ICON_EXT + "查看原笔记";
+      btn.innerHTML = ICON_EXT + (v.platform === "bilibili" ? "查看原视频" : "查看原笔记");
       btn.href = v.url; btn.target = "_blank"; btn.rel = "noopener noreferrer";
       node.appendChild(btn);
     }
