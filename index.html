@@ -17,13 +17,13 @@
   --hand:"ZCOOL KuaiLe","Chalkboard SE","Comic Sans MS","华文琥珀","STHupo","方正卡通","PingFang SC",cursive;
 }
 *{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
-body{font-family:var(--sf);color:var(--label);display:flex;justify-content:center;min-height:100vh;padding:20px 0;background:#c4a3a6}
-.phone{width:min(1100px,96vw);min-height:calc(100vh - 40px);position:relative;overflow:hidden;border-radius:28px;box-shadow:0 40px 90px rgba(70,25,30,.3);background:#EADCDC}
-.wrap{position:relative;z-index:2;padding:28px 40px 50px}
+body{font-family:var(--sf);color:var(--label);display:flex;justify-content:center;min-height:100vh;padding:12px 0;background:#c4a3a6}
+.phone{width:min(1280px,99vw);min-height:calc(100vh - 24px);position:relative;overflow:hidden;border-radius:24px;box-shadow:0 40px 90px rgba(70,25,30,.3);background:#EADCDC}
+.wrap{position:relative;z-index:2;padding:20px 28px 40px}
 
 /* ===== 响应式：小屏回退为手机全屏 ===== */
 @media (max-width:900px){
-  .wrap{padding:24px 26px 40px}
+  .wrap{padding:18px 22px 32px}
   .title.big{font-size:32px}
   .title{font-size:26px}
   .topics,.cards,.script{grid-template-columns:1fr}
@@ -602,7 +602,7 @@ body{font-family:var(--sf);color:var(--label);display:flex;justify-content:cente
     @media(max-width:900px){.decomp-report{grid-template-columns:1fr}}
 
     /* ---- Hero 视频卡：玻璃白 ---- */
-    .decomp-hero{background:var(--glass-strong);backdrop-filter:blur(26px) saturate(160%);-webkit-backdrop-filter:blur(26px) saturate(160%);border:1px solid var(--stroke);box-shadow:inset 0 1px 2px rgba(255,255,255,.8),0 18px 44px rgba(90,30,40,.14)}
+    .decomp-hero{background:rgba(255,250,250,.78);backdrop-filter:blur(26px) saturate(160%);-webkit-backdrop-filter:blur(26px) saturate(160%);border:1px solid var(--stroke);box-shadow:inset 0 1px 2px rgba(255,255,255,.8),0 18px 44px rgba(90,30,40,.14)}
     .decomp-hero::before{display:none}
     .decomp-hero__top{display:flex;gap:16px;align-items:flex-start}
     .decomp-hero__cover{width:92px;height:92px;border-radius:18px;flex-shrink:0;overflow:hidden;background:linear-gradient(135deg,#FBEEEF,#F2D3D7);display:grid;place-items:center;box-shadow:inset 0 0 0 2px rgba(255,255,255,.7),0 8px 22px rgba(90,30,40,.18)}
@@ -618,7 +618,7 @@ body{font-family:var(--sf);color:var(--label);display:flex;justify-content:cente
     .decomp-hero__stat b{color:var(--accent);font-weight:700;margin-right:3px}
     .decomp-hero__bottom{display:flex;align-items:center;justify-content:space-between;margin-top:16px;padding-top:14px;border-top:1px solid rgba(255,255,255,.6)}
     .decomp-hero__src{font-size:11px;color:var(--label3);font-weight:500}
-    .decomp-hero__link{display:inline-flex;align-items:center;gap:5px;font-size:12px;font-weight:600;color:#fff;background:linear-gradient(135deg,var(--accent),var(--accent-2));border:none;border-radius:999px;padding:8px 15px;cursor:pointer;text-decoration:none;box-shadow:0 5px 14px rgba(180,49,65,.3);transition:transform .15s}
+    .decomp-hero__link{display:inline-block;font-size:13px;font-weight:600;color:#fff;background:linear-gradient(135deg,var(--accent),var(--accent-2));border:none;border-radius:999px;padding:9px 18px;cursor:pointer;text-decoration:none;box-shadow:0 5px 14px rgba(180,49,65,.3);transition:transform .15s}
     .decomp-hero__link:active{transform:scale(.97)}
 
     /* ---- 通用小节标题 ---- */
@@ -627,44 +627,44 @@ body{font-family:var(--sf);color:var(--label);display:flex;justify-content:cente
     .decomp-sec__title{font-size:16px;font-weight:700;letter-spacing:-.2px;color:var(--label)}
     .decomp-sec__sub{font-size:12px;color:rgba(37,26,27,.45);margin-left:auto;font-weight:500}
 
-    /* ---- 01 核心洞察：珊瑚粉块 ---- */
+    /* ---- 01 一句话定位：珊瑚粉块 ---- */
     .decomp-insight{background:linear-gradient(135deg,#FDE8E8 0%,#FCEFF0 100%);border:1px solid rgba(180,49,65,.14)}
     .decomp-insight::before{background:linear-gradient(180deg,#D15563,#B43141)}
     .decomp-insight .decomp-sec__num{background:linear-gradient(135deg,#D15563,#B43141)}
-    .decomp-insight__quote{font-size:17px;font-weight:700;line-height:1.55;color:#6E1420;margin-bottom:16px;letter-spacing:-.3px}
-    .decomp-insight__cols{display:flex;gap:12px}
-    @media(max-width:900px){.decomp-insight__cols{flex-direction:column}}
-    .decomp-insight__col{padding:13px 15px;background:rgba(255,255,255,.72);border:1px solid rgba(180,49,65,.12);border-radius:16px}
-    .decomp-insight__col .k{font-size:11px;font-weight:700;color:#B43141;letter-spacing:.6px;margin-bottom:5px}
-    .decomp-insight__col .v{font-size:13px;line-height:1.65;color:var(--label)}
+    .decomp-insight .decomp-sec__title{color:#6E1420}
 
-    /* ---- 02 内容结构：淡紫块 ---- */
+    /* ---- 02 开头钩子：暖黄块 ---- */
+    .decomp-hook{background:linear-gradient(135deg,#FDF6E8 0%,#FEFBEF 100%);border:1px solid rgba(200,150,60,.18)}
+    .decomp-hook::before{background:linear-gradient(180deg,#E6B84D,#C8922D)}
+    .decomp-hook .decomp-sec__num{background:linear-gradient(135deg,#E6B84D,#C8922D)}
+    .decomp-hook .decomp-sec__title{color:#6B4E16}
+
+    /* ---- 03 内容结构：淡紫块 ---- */
     .decomp-structure{background:linear-gradient(135deg,#F0EBF7 0%,#F7F3FB 100%);border:1px solid rgba(139,92,164,.14)}
     .decomp-structure::before{background:linear-gradient(180deg,#9B7AB8,#7A579C)}
     .decomp-structure .decomp-sec__num{background:linear-gradient(135deg,#9B7AB8,#7A579C)}
     .decomp-structure .decomp-sec__title{color:#5A3D72}
 
-    /* ---- 03 可借鉴爆点：薄荷绿块 ---- */
+    /* ---- 04 可借鉴爆点：薄荷绿块 ---- */
     .decomp-borrow{background:linear-gradient(135deg,#E8F6F0 0%,#EFFBF5 100%);border:1px solid rgba(46,125,107,.14)}
     .decomp-borrow::before{background:linear-gradient(180deg,#5CB89A,#2E7D6B)}
     .decomp-borrow .decomp-sec__num{background:linear-gradient(135deg,#5CB89A,#2E7D6B)}
     .decomp-borrow .decomp-sec__title{color:#1E5246}
 
-    /* ---- 04 执行建议：暖黄块 ---- */
-    .decomp-actions{background:linear-gradient(135deg,#FDF6E8 0%,#FEFBEF 100%);border:1px solid rgba(200,150,60,.18)}
-    .decomp-actions::before{background:linear-gradient(180deg,#E6B84D,#C8922D)}
-    .decomp-actions .decomp-sec__num{background:linear-gradient(135deg,#E6B84D,#C8922D)}
-    .decomp-actions .decomp-sec__title{color:#6B4E16}
-    .decomp-action{background:rgba(255,255,255,.72);border:1px solid rgba(200,150,60,.14);border-radius:18px;padding:16px}
-    .decomp-action__k{font-size:11px;font-weight:700;letter-spacing:.6px;color:#A3701A;margin-bottom:8px}
+    /* ---- 05 执行建议：淡蓝块 ---- */
+    .decomp-actions{background:linear-gradient(135deg,#E8F1FA 0%,#F0F7FE 100%);border:1px solid rgba(70,130,180,.14)}
+    .decomp-actions::before{background:linear-gradient(180deg,#6FA3D4,#4682B4)}
+    .decomp-actions .decomp-sec__num{background:linear-gradient(135deg,#6FA3D4,#4682B4)}
+    .decomp-actions .decomp-sec__title{color:#2F5F8A}
+    .decomp-action{background:rgba(255,255,255,.72);border:1px solid rgba(70,130,180,.14);border-radius:18px;padding:16px}
+    .decomp-action__k{font-size:11px;font-weight:700;letter-spacing:.6px;color:#2F5F8A;margin-bottom:8px}
     .decomp-action__v{font-size:14px;line-height:1.75;color:var(--label);white-space:pre-wrap;word-break:break-word}
 
-    /* ---- 05 注意事项：淡蓝块 ---- */
-    .decomp-caveat{background:linear-gradient(135deg,#E8F1FA 0%,#F0F7FE 100%);border:1px solid rgba(70,130,180,.14)}
-    .decomp-caveat::before{background:linear-gradient(180deg,#6FA3D4,#4682B4)}
-    .decomp-caveat .decomp-sec__num{background:linear-gradient(135deg,#6FA3D4,#4682B4)}
-    .decomp-caveat__head{font-size:12px;font-weight:700;color:#2F5F8A;margin-bottom:6px}
-    .decomp-caveat__body{font-size:13px;line-height:1.75;color:var(--label2)}
+    /* ---- 06 注意事项：浅灰块 ---- */
+    .decomp-caveat{background:linear-gradient(135deg,#F0F0F2 0%,#F7F7F9 100%);border:1px solid rgba(120,120,130,.14)}
+    .decomp-caveat::before{background:linear-gradient(180deg,#A0A0A8,#787880)}
+    .decomp-caveat .decomp-sec__num{background:linear-gradient(135deg,#A0A0A8,#787880)}
+    .decomp-caveat .decomp-sec__title{color:#4A4A52}
 
     /* ---- 长文本自动拆分为 bullet ---- */
     .decomp-textlist{list-style:none;display:flex;flex-direction:column;gap:10px;margin:0;padding:0}
@@ -1217,29 +1217,34 @@ body{font-family:var(--sf);color:var(--label);display:flex;justify-content:cente
         const report = el("div", "decomp-report");
         let n = 1;
 
-        // 01 核心洞察：定位 + 钩子 合并为一张大引用卡
-        if (a.positioning || a.hook) {
-          report.appendChild(decompInsight(a.positioning, a.hook, n++));
+        // 01 一句话定位
+        if (a.positioning) {
+          report.appendChild(decompSection(n++, "一句话定位", "", decompBody(a.positioning, true), "decomp-insight"));
         }
 
-        // 02 内容结构：用时间线呈现
+        // 02 开头钩子
+        if (a.hook) {
+          report.appendChild(decompSection(n++, "开头钩子", "", decompBody(a.hook, true), "decomp-hook"));
+        }
+
+        // 03 内容结构：用时间线呈现
         const structure = normalizeList(a.structure);
         if (structure.length) {
           report.appendChild(decompSection(n++, "内容结构", "视频如何一步步推进", decompFlow(structure), "decomp-structure"));
         }
 
-        // 03 可借鉴爆点：2列网格
+        // 04 可借鉴爆点：2列网格
         const borrowable = normalizeList(a.borrowable);
         if (borrowable.length) {
           report.appendChild(decompSection(n++, "可借鉴的爆点 / 手法", "值得复用的创作技巧", decompHighlights(borrowable), "decomp-borrow"));
         }
 
-        // 04 执行建议：受众 + 差异化 双栏
+        // 05 执行建议：受众 + 差异化 双栏
         if (a.audience_insight || a.your_angle) {
           report.appendChild(decompActions(a.audience_insight, a.your_angle, n++));
         }
 
-        // 05 注意事项
+        // 06 注意事项
         if (a.caveats) {
           report.appendChild(decompCaveat(a.caveats, n++));
         }
@@ -1308,7 +1313,7 @@ body{font-family:var(--sf);color:var(--label);display:flex;justify-content:cente
       const bottom = el("div", "decomp-hero__bottom");
       bottom.appendChild(el("div", "decomp-hero__src", "来源：" + (isBili ? "B站" : "小红书") + " · 点击右侧按钮查看原视频"));
       const link = el("a", "decomp-hero__link");
-      link.innerHTML = ICON_EXT + "查看原视频";
+      link.textContent = "查看原视频";
       link.href = video.url; link.target = "_blank"; link.rel = "noopener noreferrer";
       bottom.appendChild(link);
       wrap.appendChild(bottom);
@@ -1361,32 +1366,6 @@ body{font-family:var(--sf);color:var(--label);display:flex;justify-content:cente
     sec.appendChild(head);
     sec.appendChild(child);
     return sec;
-  }
-
-  function decompInsight(positioning, hook, num) {
-    const box = el("div", "decomp-insight decomp-sec reveal");
-    box.style.animationDelay = (num * 0.06) + "s";
-    const q = el("div", "decomp-insight__quote", escapeHtml(positioning || hook || ""));
-    box.appendChild(q);
-
-    const cols = el("div", "decomp-insight__cols");
-    if (positioning && hook) {
-      const c1 = el("div", "decomp-insight__col");
-      c1.appendChild(el("div", "k", "一句话定位"));
-      c1.appendChild(decompBody(positioning, false));
-      cols.appendChild(c1);
-      const c2 = el("div", "decomp-insight__col");
-      c2.appendChild(el("div", "k", "开头钩子"));
-      c2.appendChild(decompBody(hook, false));
-      cols.appendChild(c2);
-    } else if (hook) {
-      const c1 = el("div", "decomp-insight__col");
-      c1.appendChild(el("div", "k", "开头钩子"));
-      c1.appendChild(decompBody(hook, false));
-      cols.appendChild(c1);
-    }
-    if (cols.childNodes.length) box.appendChild(cols);
-    return box;
   }
 
   function decompActions(audience, angle, num) {
