@@ -224,12 +224,24 @@ def openrouter_json(system_prompt, user_prompt, expect="object", max_tokens=1500
 
 
 # ----------------------------- 业务逻辑 -----------------------------
+# 理解结果缓存：相同想法不重复消耗 AI 配额（免费层每日仅 50 次，很珍贵）。
+_UNDERSTAND_CACHE = {}
+_UNDERSTAND_CACHE_TTL = 6 * 3600  # 6 小时
+
+
 def handle_understand(data):
     idea = (data.get("idea") or "").strip()
     if not idea:
         return {"error": "请输入你的想法"}
     account_ctx = data.get("accountContext") or {}
     account = account_ctx.get("account") or ""
+
+    # 缓存命中（相同想法 + 相同账号方向）：直接返回，省一次 AI 配额
+    cache_key = (idea, account)
+    hit = _UNDERSTAND_CACHE.get(cache_key)
+    if hit and (time.time() - hit[0]) < _UNDERSTAND_CACHE_TTL:
+        log("UNDERSTAND CACHE HIT", "idea=<{:.20}>".format(idea))
+        return hit[1]
 
     system = (
         "你是一个小红书内容策略 AI。用户输入一个模糊的内容想法。"
@@ -257,7 +269,7 @@ def handle_understand(data):
         # AI 不可用（如免费额度耗尽/限流）：降级为用原始输入作为检索词，
         # 保证搜索流程仍可继续，前端会提示「AI 离线，已按原词检索」。
         log("UNDERSTAND DEGRADE", "AI 不可用，使用原始输入检索：%s" % str(e)[:80])
-        return {
+        res = {
             "intent": {"theme": idea, "scene": "", "audience": "", "content_goal": ""},
             "queries": [idea],
             "need_clarify": False,
@@ -265,6 +277,8 @@ def handle_understand(data):
             "clarify_options": [],
             "ai_unavailable": True,
         }
+        _UNDERSTAND_CACHE[cache_key] = (time.time(), res)
+        return res
 
     # 容错：确保关键字段存在
     intent = d.get("intent") or {}
@@ -273,13 +287,15 @@ def handle_understand(data):
     queries = d.get("queries") or []
     if not isinstance(queries, list):
         queries = [str(queries)]
-    return {
+    res = {
         "intent": intent,
         "queries": queries[:5],
         "need_clarify": bool(d.get("need_clarify")),
         "clarify_question": d.get("clarify_question") or "",
         "clarify_options": d.get("clarify_options") or [],
     }
+    _UNDERSTAND_CACHE[cache_key] = (time.time(), res)
+    return res
 
 
 def handle_search(data):
