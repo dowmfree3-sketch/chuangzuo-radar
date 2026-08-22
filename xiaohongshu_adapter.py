@@ -700,13 +700,17 @@ def _bili_duration(sec):
         s = sec.strip()
         if not s:
             return ""
-        # 仅含数字与冒号，认为已是规范时长
+        # 仅含数字与冒号，认为已是规范时长，补齐 2 位
         if all(c.isdigit() or c == ":" for c in s):
-            # 补齐 mm:ss 格式
             parts = s.split(":")
-            if len(parts) == 2 and len(parts[0]) == 1:
-                s = "0" + s
-            return s
+            try:
+                ints = [int(p) for p in parts]
+            except ValueError:
+                return ""
+            if len(ints) == 2:
+                return "%02d:%02d" % (ints[0], ints[1])
+            if len(ints) == 3:
+                return "%d:%02d:%02d" % (ints[0], ints[1], ints[2])
         return ""
     # 数字（秒）→ 转 mm:ss
     try:
