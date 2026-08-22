@@ -159,12 +159,12 @@ body{font-family:var(--sf);color:var(--label);display:flex;justify-content:cente
 
 /* ===== screen 02 topics ===== */
 .topics{display:grid;grid-template-columns:repeat(auto-fill,minmax(360px,1fr));gap:14px}
-.topic{background:var(--glass);backdrop-filter:blur(26px) saturate(150%);-webkit-backdrop-filter:blur(26px) saturate(150%);border:1px solid var(--stroke);border-radius:20px;padding:16px;box-shadow:inset 0 1px 1px rgba(255,255,255,.6),0 8px 22px rgba(90,30,40,.1);cursor:pointer;transition:transform .15s,box-shadow .15s}
+.topic{position:relative;background:var(--glass);backdrop-filter:blur(26px) saturate(150%);-webkit-backdrop-filter:blur(26px) saturate(150%);border:1px solid var(--stroke);border-radius:20px;padding:16px;box-shadow:inset 0 1px 1px rgba(255,255,255,.6),0 8px 22px rgba(90,30,40,.1);cursor:pointer;transition:transform .15s,box-shadow .15s}
 .topic:active{transform:scale(.99)}
 .topic.on{box-shadow:inset 0 1px 1px rgba(255,255,255,.6),0 0 0 2px rgba(180,49,65,.5),0 8px 22px rgba(180,49,65,.2)}
-.topic .top{display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:9px}
+.topic .top{display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:9px;padding-right:60px}
 .topic .tt{font-size:22px;font-weight:600;line-height:1.35;letter-spacing:-.2px}
-.ring{position:relative;width:46px;height:46px;flex-shrink:0}
+.ring{position:absolute;top:14px;right:14px;width:46px;height:46px;flex-shrink:0;z-index:2}
 .ring svg{width:46px;height:46px;transform:rotate(-90deg)}
 .ring .bg{fill:none;stroke:rgba(180,49,65,.14);stroke-width:5}
 .ring .fg{fill:none;stroke:url(#ringGrad);stroke-width:5;stroke-linecap:round;transition:stroke-dashoffset .6s cubic-bezier(.2,.7,.2,1)}
