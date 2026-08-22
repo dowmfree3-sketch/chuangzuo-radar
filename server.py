@@ -321,15 +321,14 @@ def handle_search(data):
             # 召回很少时诚实提示用户：这是免费源的客观覆盖限制，不是 bug。
             if len(candidates) < 3:
                 res["note"] = (
-                    "免费检索源对小红书单篇笔记收录有限，当前仅找到少量相关视频；"
-                    "部分笔记需登录小红书账号才能打开。"
+                    "免费检索源收录有限，当前仅找到少量相关视频。"
                     "如需稳定检索更多相关视频，建议接入 XHS_PROVIDER=rest 并配置 XHS_REST_BASE。"
                 )
             return res
         if src_unavailable:
             return {"results": [], "code": "xhs_source_unavailable", "realtime": False,
-                    "note": "所有检索词的小红书视频数据源当前都不可用（Tavily 免费层可能限流，或暂未收录该主题）。可稍后重试，"
-                            "或接入 XHS_PROVIDER=rest 并配置 XHS_REST_BASE 指向合规的小红书内容接口以稳定检索。"}
+                    "note": "所有检索词的视频数据源当前都不可用（B站/Tavily 免费层可能限流，或暂未收录该主题）。可稍后重试，"
+                            "或接入 XHS_PROVIDER=rest 并配置 XHS_REST_BASE 指向合规内容接口以稳定检索。"}
         return {"results": [], "code": "no_results", "realtime": True, "source": source or "unknown"}
 
     # 免费检索源偶发限流（429）时，整体等几秒后重试一次，扛过限流窗口

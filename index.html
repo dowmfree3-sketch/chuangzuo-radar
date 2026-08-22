@@ -497,7 +497,7 @@ body{font-family:var(--sf);color:var(--label);display:flex;justify-content:cente
         <div id="ideaForm">
           <div>
             <h1 class="title big">你最近想做什么？</h1>
-            <p class="sub lg">一句话描述你的想法、热点或问题。我会用 AI 理解它，并去小红书帮你找<b>值得研究的视频笔记</b>。</p>
+            <p class="sub lg">一句话描述你的想法、热点或问题。我会用 AI 理解它，并去 B站帮你找<b>值得研究的视频</b>。</p>
           </div>
           <div class="input">
             <textarea id="ideaInput" placeholder="例如：我刚参加完 AI 产品实习面试，发现很多同学不知道面试官看重什么，想做一期经验分享。"></textarea>
@@ -510,7 +510,7 @@ body{font-family:var(--sf);color:var(--label);display:flex;justify-content:cente
             </div>
           </div>
           <div>
-            <div class="src-note">已接入真实 AI（OpenRouter）+ 小红书视频检索。所有结果均来自真实数据源，仅展示「视频笔记」，图文笔记会被自动过滤。</div>
+            <div class="src-note">已接入真实 AI（OpenRouter）+ B站视频检索。所有结果均来自真实数据源，仅展示「视频」，图文内容会被自动过滤。</div>
           </div>
         </div>
         <div id="understandingBox" style="display:none"></div>
@@ -706,7 +706,7 @@ body{font-family:var(--sf);color:var(--label);display:flex;justify-content:cente
     if (!msg) return "AI 暂时没有回应，请稍后再试。";
     if (/OPENROUTER_API_KEY|AI 服务尚未配置|尚未配置/.test(msg)) return "AI 服务尚未配置，请先配置 API Key。";
     if (/NoneType|AttributeError|TypeError|KeyError|IndexError|ValueError|Traceback|exception|HTTP|401|403|429|quota|credit/i.test(msg)) return "AI 暂时没有回应，请稍后再试。";
-    if (/数据源|小红书内容|provider|source|XHS|真实数据/i.test(msg)) return "当前无法获取小红书内容，请稍后重试。";
+    if (/数据源|小红书内容|provider|source|XHS|真实数据/i.test(msg)) return "当前无法获取视频内容，请稍后重试。";
     return msg;
   }
 
@@ -759,7 +759,7 @@ body{font-family:var(--sf);color:var(--label);display:flex;justify-content:cente
     if (u.content_goal) metaParts.push("目标：" + u.content_goal);
     if (metaParts.length) card.appendChild(el("div", "ai-understand__meta", metaParts.join("  ·  ")));
     box.appendChild(card);
-    box.appendChild(el("div", "ai-understand__q", "AI 已生成检索关键词，马上去小红书找视频笔记…"));
+    box.appendChild(el("div", "ai-understand__q", "AI 已生成检索关键词，马上去 B站找视频…"));
 
     const nav = el("div", "foot-actions");
     const back = el("button", "btn ghost", "← 换个想法");
@@ -804,7 +804,7 @@ body{font-family:var(--sf);color:var(--label);display:flex;justify-content:cente
   }
 
   /* ================================================================
-   * 02 小红书视频检索 + AI 排序 -> Top 5 视频笔记
+   * 02 B站视频检索 + AI 排序 -> Top 5 视频
    * ============================================================== */
   async function proceedToSearch() {
     showThinking("正在帮你找适合的视频", "理解你的想法 ✓");
@@ -987,7 +987,7 @@ body{font-family:var(--sf);color:var(--label);display:flex;justify-content:cente
     const realtime = searchResp.realtime === true;
 
     sec.appendChild(headerBlock("找到了 " + list.length + " 条值得研究的视频",
-      "都是小红书「视频笔记」，图文内容已被自动过滤。"));
+      "都是 B站「视频」，图文内容已被自动过滤。"));
     const grp = el("div", "group-head");
     grp.appendChild(el("h3", "", "实时视频检索"));
     const live = el("span", "live");
@@ -1030,11 +1030,11 @@ body{font-family:var(--sf);color:var(--label);display:flex;justify-content:cente
     const code = d.code || "no_results";
 
     if (code === "xhs_source_unavailable") {
-      sec.appendChild(headerBlock("暂时拿不到相关的小红书视频", "真实数据源没有匹配结果。"));
+      sec.appendChild(headerBlock("暂时拿不到相关的 B站视频", "真实数据源没有匹配结果。"));
       const box = el("div", "empty-note");
       box.innerHTML = (d.note
         ? d.note.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/\n/g, "<br>")
-        : "当前环境未在真实数据源中找到相关的小红书视频笔记。<br><br>需要接入合规数据源" +
+        : "当前环境未在真实数据源中找到相关的 B站视频笔记。<br><br>需要接入合规数据源" +
           "（设置 <b>XHS_PROVIDER=rest</b> 并配置 <b>XHS_REST_BASE</b> 指向内容接口）后，才能返回相关视频。");
       sec.appendChild(box);
       sec.appendChild(footActions({ back: () => backTo(1), backLabel: "返回", next: () => proceedToSearch(), nextLabel: "重新搜索 →" }));
