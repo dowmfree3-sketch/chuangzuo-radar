@@ -798,9 +798,9 @@ body{font-family:var(--sf);color:var(--label);display:flex;justify-content:cente
 (function () {
   "use strict";
 
-  // 视频拆解页样式（动态注入，避免改动大段 CSS）
+  // 视频拆解页样式（已迁移至主样式表，无需 JS 注入）
   // [已迁移至主样式表]   document.head.insertAdjacentHTML("beforeend", `
-  `);
+  // 模板字串内容已搬到主 <style> 块，此处原模板字串已删除。
 
   // 后端基址：file:// 直接打开 -> 本地后端；http(s) 同源 -> 相对路径
   const API_BASE = (location.protocol === "file:") ? "http://127.0.0.1:8000" : "";
