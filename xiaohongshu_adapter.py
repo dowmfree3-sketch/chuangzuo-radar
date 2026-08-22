@@ -802,6 +802,8 @@ def _normalize(item):
         "likes": num(item.get("likes")),
         "collects": num(item.get("collects") or item.get("favs")),
         "comments": num(item.get("comments") or item.get("comment_count")),
+        "play": num(item.get("play") or item.get("view")),          # B站播放量（如 B站等结构化源提供）
+        "duration": item.get("duration") or "",                    # B站时长（"m:s"格式）；其他源为空字符串
         "videoUrl": item.get("videoUrl") or item.get("video_url") or "",
         "description": item.get("description") or item.get("desc") or "",
     }

@@ -892,12 +892,12 @@ body{font-family:var(--sf);color:var(--label);display:flex;justify-content:cente
     if (metaParts.length) card.appendChild(el("div", "ai-understand__meta", metaParts.join("  ·  ")));
     box.appendChild(card);
     if (S.keywordOnly) {
-      box.appendChild(el("div", "src-note", "🔍 已按你输入的关键词直接去 B站检索（未使用 AI 排序），搜索结果基于关键词相关度。"));
+      box.appendChild(el("div", "src-note", "🔍 已按你输入的关键词去 B站检索；接下来会由 AI 对候选视频做匹配度排序与「为什么值得研究」评估。"));
     } else if (S.aiUnavailable) {
       const warn = el("div", "src-note warn", "⚠️ AI 服务暂时不可用（免费额度已耗尽或限流），已用你输入的原文直接去 B站检索，搜索结果可能没那么精准，但仍可继续拆解。");
       box.appendChild(warn);
     }
-    box.appendChild(el("div", "ai-understand__q", S.keywordOnly ? "正在按关键词去 B站找视频…" : (S.aiUnavailable ? "正在按原文去 B站找视频…" : "AI 已生成检索关键词，马上去 B站找视频…")));
+    box.appendChild(el("div", "ai-understand__q", S.keywordOnly ? "正在去 B站找视频并由 AI 排序…" : (S.aiUnavailable ? "正在按原文去 B站找视频…" : "AI 已生成检索关键词，马上去 B站找视频…")));
 
     const nav = el("div", "foot-actions");
     const back = el("button", "btn ghost", "← 换个想法");
@@ -961,39 +961,33 @@ body{font-family:var(--sf);color:var(--label);display:flex;justify-content:cente
         return;
       }
       showThinking("筛选高匹配内容", "理解你的想法 ✓ · 寻找相关视频 ✓");
+      // 智谱 GLM-4-Flash 免费可用后，AI 排序可以正常调用，给出真实匹配度与推荐理由。
       let rank;
-      if (S.keywordOnly) {
-        // 纯关键词检索：不调用 AI 排序，直接用 B站按相关度返回的结果（最多 8 条）
-        rank = { code: "ok", results: S.rawCandidates.slice(0, 8) };
-      } else {
-        try {
-          rank = await api("/api/rank-xhs-videos", {
-            candidates: S.rawCandidates,
-            intent: S.understanding,
-            accountContext: accountCtx(),
-          });
-        } catch (e) {
-          hideThinking();
-          // AI 排序失败时降级展示原始候选视频，避免用户卡在错误页
-          S.videos = (S.rawCandidates || []).slice(0, 5);
-          if (S.videos.length) {
-            const note = (d.note ? d.note + "\n" : "") + "AI 排序暂时不可用，已按原始搜索结果展示，仍可继续拆解。";
-            renderVideos({ ...d, note, noteClass: "warn" }, { error: e.message });
-          } else {
-            renderSearchOutcome({ code: "ai_unavailable", error: friendlyError(e.message) });
-          }
-          showScreen(2, false);
-          return;
+      try {
+        rank = await api("/api/rank-xhs-videos", {
+          candidates: S.rawCandidates,
+          intent: S.understanding,
+          accountContext: accountCtx(),
+        });
+      } catch (e) {
+        hideThinking();
+        S.videos = (S.rawCandidates || []).slice(0, 5);
+        if (S.videos.length) {
+          const note = (d.note ? d.note + "\n" : "") + "AI 排序暂时不可用，已按 B站搜索结果展示原始数据，仍可继续拆解。";
+          renderVideos({ ...d, note, noteClass: "warn" }, { error: e.message });
+        } else {
+          renderSearchOutcome({ code: "ai_unavailable", error: friendlyError(e.message) });
         }
-        // rank 正常返回但 backend 标记 AI 不可用：同样降级展示原始候选
-        if (rank && rank.code === "ai_unavailable") {
-          S.videos = S.rawCandidates.slice(0, 5);
-          const note = (d.note ? d.note + "\n" : "") + "AI 排序暂时不可用，已按原始搜索结果展示，仍可继续拆解。";
-          hideThinking();
-          renderVideos({ ...d, note, noteClass: "warn" }, rank);
-          showScreen(2, false);
-          return;
-        }
+        showScreen(2, false);
+        return;
+      }
+      if (rank && rank.code === "ai_unavailable") {
+        S.videos = S.rawCandidates.slice(0, 5);
+        const note = (d.note ? d.note + "\n" : "") + "AI 排序暂时不可用，已按 B站搜索结果展示原始数据，仍可继续拆解。";
+        hideThinking();
+        renderVideos({ ...d, note, noteClass: "warn" }, rank);
+        showScreen(2, false);
+        return;
       }
       S.videos = (rank.results && rank.results.length) ? rank.results : S.rawCandidates.slice(0, 5);
       hideThinking();
