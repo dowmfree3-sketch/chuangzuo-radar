@@ -1782,7 +1782,7 @@ body{font-family:var(--sf);color:var(--label);display:flex;justify-content:cente
       splash.classList.add("done");
       setTimeout(() => splash.remove(), 750);
     }
-    const timer = setTimeout(endSplash, 2300);
+    const timer = setTimeout(endSplash, 1200);
     splash.addEventListener("click", () => { clearTimeout(timer); endSplash(); });
   })();
 
