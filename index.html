@@ -587,49 +587,71 @@ body{font-family:var(--sf);color:var(--label);display:flex;justify-content:cente
 
   // 视频拆解页样式（动态注入，避免改动大段 CSS）
   document.head.insertAdjacentHTML("beforeend", `
-    /* ---- 拆解页：视频信息卡 ---- */
-    .decomp-hero{background:linear-gradient(135deg,var(--glass-strong),rgba(255,255,255,.5));border:1px solid var(--stroke);border-radius:22px;padding:16px;margin:12px 0 18px;box-shadow:inset 0 1px 2px rgba(255,255,255,.8),0 12px 30px rgba(90,30,40,.12);overflow:hidden;position:relative}
-    .decomp-hero::before{content:"";position:absolute;top:-40px;right:-40px;width:130px;height:130px;border-radius:50%;background:radial-gradient(circle,rgba(180,49,65,.12),transparent 70%);pointer-events:none}
-    .decomp-hero__top{display:flex;gap:14px;align-items:flex-start;margin-bottom:12px}
-    .decomp-hero__cover{width:86px;height:86px;border-radius:16px;flex-shrink:0;overflow:hidden;background:linear-gradient(135deg,#FBEEEF,#F2D3D7);display:grid;place-items:center;font-size:32px;box-shadow:inset 0 0 0 2px rgba(255,255,255,.7),0 6px 16px rgba(90,30,40,.16)}
+    /* ---- 拆解页：杂志式报告 ---- */
+    .decomp-report{display:flex;flex-direction:column;gap:18px}
+    .decomp-sec{animation:rv .55s cubic-bezier(.2,.7,.2,1) both}
+
+    /* ---- Hero 视频卡 ---- */
+    .decomp-hero{background:var(--glass-strong);backdrop-filter:blur(26px) saturate(160%);-webkit-backdrop-filter:blur(26px) saturate(160%);border:1px solid var(--stroke);border-radius:24px;padding:18px;box-shadow:inset 0 1px 2px rgba(255,255,255,.8),0 18px 44px rgba(90,30,40,.14)}
+    .decomp-hero__top{display:flex;gap:16px;align-items:flex-start}
+    .decomp-hero__cover{width:92px;height:92px;border-radius:18px;flex-shrink:0;overflow:hidden;background:linear-gradient(135deg,#FBEEEF,#F2D3D7);display:grid;place-items:center;box-shadow:inset 0 0 0 2px rgba(255,255,255,.7),0 8px 22px rgba(90,30,40,.18)}
     .decomp-hero__cover img{width:100%;height:100%;object-fit:cover;display:block}
-    .decomp-hero__cover.noimg{color:#B43141}
-    .decomp-hero__info{flex:1;min-width:0;display:flex;flex-direction:column;gap:5px;padding-top:2px}
-    .decomp-hero__badge{display:inline-flex;align-items:center;gap:4px;font-size:11px;font-weight:600;color:var(--accent);background:rgba(180,49,65,.08);border:1px solid rgba(180,49,65,.14);border-radius:999px;padding:3px 9px;align-self:flex-start}
-    .decomp-hero__title{font-size:17px;font-weight:700;line-height:1.4;letter-spacing:-.25px;color:var(--label);display:-webkit-box;-webkit-line-clamp:3;-webkit-box-orient:vertical;overflow:hidden}
-    .decomp-hero__meta{font-size:12px;color:var(--label2);line-height:1.5}
-    .decomp-hero__meta b{color:var(--label);font-weight:600}
-    .decomp-hero__stats{display:flex;gap:10px;margin-top:4px}
-    .decomp-hero__stat{font-size:12px;color:var(--label2);background:rgba(255,255,255,.45);border:1px solid var(--stroke);border-radius:999px;padding:4px 10px}
+    .decomp-hero__cover.noimg{color:#B43141;font-size:32px}
+    .decomp-hero__info{flex:1;min-width:0;display:flex;flex-direction:column;gap:7px;padding-top:2px}
+    .decomp-hero__label{font-size:11px;font-weight:700;color:var(--accent);text-transform:uppercase;letter-spacing:.8px}
+    .decomp-hero__title{font-size:18px;font-weight:700;line-height:1.35;letter-spacing:-.3px;color:var(--label)}
+    .decomp-hero__meta{font-size:13px;color:var(--label2);line-height:1.5}
+    .decomp-hero__meta .au{font-weight:600;color:var(--label)}
+    .decomp-hero__stats{display:flex;flex-wrap:wrap;gap:8px;margin-top:3px}
+    .decomp-hero__stat{font-size:12px;font-weight:500;color:var(--label2);background:rgba(255,255,255,.5);border:1px solid var(--stroke);border-radius:999px;padding:4px 10px}
     .decomp-hero__stat b{color:var(--accent);font-weight:700;margin-right:3px}
-    .decomp-hero__link{display:inline-flex;align-items:center;gap:5px;margin-top:10px;font-size:13px;font-weight:600;color:#fff;background:linear-gradient(135deg,var(--accent),var(--accent-2));border:none;border-radius:999px;padding:8px 16px;cursor:pointer;text-decoration:none;box-shadow:0 5px 14px rgba(180,49,65,.3);transition:transform .15s}
+    .decomp-hero__bottom{display:flex;align-items:center;justify-content:space-between;margin-top:14px;padding-top:14px;border-top:1px solid rgba(255,255,255,.6)}
+    .decomp-hero__src{font-size:11px;color:var(--label3);font-weight:500}
+    .decomp-hero__link{display:inline-flex;align-items:center;gap:5px;font-size:12px;font-weight:600;color:#fff;background:linear-gradient(135deg,var(--accent),var(--accent-2));border:none;border-radius:999px;padding:8px 15px;cursor:pointer;text-decoration:none;box-shadow:0 5px 14px rgba(180,49,65,.3);transition:transform .15s}
     .decomp-hero__link:active{transform:scale(.97)}
 
-    /* ---- 拆解页：分块卡片 ---- */
-    .decomp-grid{display:flex;flex-direction:column;gap:12px;margin:0 0 6px}
-    .decomp-card{background:var(--glass);border:1px solid var(--stroke);border-radius:20px;padding:16px;box-shadow:inset 0 1px 1px rgba(255,255,255,.6),0 8px 22px rgba(90,30,40,.1);animation:rv .55s cubic-bezier(.2,.7,.2,1) both}
-    .decomp-card__head{display:flex;align-items:center;gap:9px;margin-bottom:11px}
-    .decomp-card__icon{width:30px;height:30px;border-radius:10px;display:grid;place-items:center;font-size:16px;background:linear-gradient(135deg,#FBEEEF,#F2D3D7);box-shadow:inset 0 0 0 1.5px rgba(255,255,255,.7),0 3px 8px rgba(90,30,40,.12);flex-shrink:0}
-    .decomp-card__title{font-size:15px;font-weight:700;letter-spacing:-.2px;color:var(--label)}
-    .decomp-card__body{font-size:14px;line-height:1.7;color:var(--label);white-space:pre-wrap;word-break:break-word}
-    .decomp-card__body.subtle{color:var(--label2)}
+    /* ---- 通用小节标题 ---- */
+    .decomp-sec__head{display:flex;align-items:center;gap:10px;margin-bottom:12px}
+    .decomp-sec__num{width:26px;height:26px;border-radius:8px;display:grid;place-items:center;font-size:12px;font-weight:800;color:#fff;background:linear-gradient(135deg,var(--accent),var(--accent-2));box-shadow:0 4px 10px rgba(180,49,65,.25);flex-shrink:0}
+    .decomp-sec__title{font-size:15px;font-weight:700;letter-spacing:-.2px;color:var(--label)}
+    .decomp-sec__sub{font-size:12px;color:var(--label3);margin-left:auto;font-weight:500}
 
-    /* ---- 拆解页：时间线结构 ---- */
-    .decomp-flow{display:flex;flex-direction:column;gap:0}
-    .decomp-flow__item{position:relative;padding:0 0 14px 30px}
+    /* ---- 核心洞察：大引用卡 ---- */
+    .decomp-insight{background:linear-gradient(135deg,rgba(180,49,65,.08),rgba(180,49,65,.03));border:1px solid rgba(180,49,65,.16);border-radius:22px;padding:18px;position:relative;overflow:hidden}
+    .decomp-insight::before{content:"";position:absolute;left:0;top:0;bottom:0;width:4px;background:linear-gradient(180deg,var(--accent),var(--accent-2))}
+    .decomp-insight__quote{font-size:16px;font-weight:600;line-height:1.6;color:var(--label);margin-bottom:14px}
+    .decomp-insight__cols{display:flex;flex-direction:column;gap:12px}
+    .decomp-insight__col{padding:12px 14px;background:var(--glass-strong);border:1px solid var(--stroke);border-radius:14px}
+    .decomp-insight__col .k{font-size:11px;font-weight:700;color:var(--accent);letter-spacing:.6px;margin-bottom:5px}
+    .decomp-insight__col .v{font-size:13px;line-height:1.6;color:var(--label)}
+
+    /* ---- 内容结构：时间线 ---- */
+    .decomp-flow{display:flex;flex-direction:column;gap:0;position:relative;padding-left:14px}
+    .decomp-flow::before{content:"";position:absolute;left:22px;top:8px;bottom:18px;width:1.5px;background:linear-gradient(180deg,rgba(180,49,65,.35),rgba(180,49,65,.1));border-radius:1px}
+    .decomp-flow__item{position:relative;padding:0 0 20px 38px}
     .decomp-flow__item:last-child{padding-bottom:0}
-    .decomp-flow__item::before{content:"";position:absolute;left:9px;top:22px;bottom:-2px;width:2px;background:linear-gradient(180deg,rgba(180,49,65,.35),rgba(180,49,65,.08));border-radius:1px}
-    .decomp-flow__item:last-child::before{display:none}
-    .decomp-flow__dot{position:absolute;left:0;top:1px;width:20px;height:20px;border-radius:50%;display:grid;place-items:center;font-size:10px;font-weight:800;color:#fff;background:linear-gradient(135deg,var(--accent),var(--accent-2));box-shadow:0 4px 10px rgba(180,49,65,.35),inset 0 1px 1px rgba(255,255,255,.5)}
-    .decomp-flow__text{font-size:14px;line-height:1.6;color:var(--label)}
+    .decomp-flow__dot{position:absolute;left:0;top:0;width:26px;height:26px;border-radius:50%;display:grid;place-items:center;font-size:11px;font-weight:800;color:#fff;background:linear-gradient(135deg,var(--accent),var(--accent-2));box-shadow:0 4px 12px rgba(180,49,65,.3),inset 0 1px 1px rgba(255,255,255,.5)}
+    .decomp-flow__text{font-size:14px;line-height:1.65;color:var(--label);padding-top:3px}
+    .decomp-flow__text b{font-weight:600}
 
-    /* ---- 拆解页：爆点标签 ---- */
-    .decomp-highlights{display:flex;flex-wrap:wrap;gap:8px}
-    .decomp-hl{font-size:13px;font-weight:500;color:var(--label);background:rgba(255,255,255,.55);border:1px solid var(--stroke);border-radius:12px;padding:9px 12px;line-height:1.45;box-shadow:inset 0 1px 1px rgba(255,255,255,.7)}
-    .decomp-hl b{color:var(--accent);font-weight:700}
+    /* ---- 可借鉴爆点：2列网格 ---- */
+    .decomp-highlights{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+    .decomp-hl{display:flex;align-items:flex-start;gap:9px;font-size:13px;line-height:1.55;color:var(--label);background:rgba(255,255,255,.55);border:1px solid var(--stroke);border-radius:14px;padding:12px;box-shadow:inset 0 1px 1px rgba(255,255,255,.7)}
+    .decomp-hl::before{content:"";width:6px;height:6px;border-radius:50%;background:var(--accent);margin-top:6px;flex-shrink:0}
 
-    /* ---- 拆解页：数据依据 ---- */
-    .decomp-footnote{font-size:11px;line-height:1.55;color:var(--label3);margin:14px 2px 6px;padding:10px 12px;background:rgba(0,0,0,.03);border-radius:10px}
+    /* ---- 执行建议：双栏 ---- */
+    .decomp-actions{display:grid;grid-template-columns:1fr;gap:10px}
+    .decomp-action{background:var(--glass);border:1px solid var(--stroke);border-radius:18px;padding:16px;box-shadow:inset 0 1px 1px rgba(255,255,255,.6),0 8px 22px rgba(90,30,40,.1)}
+    .decomp-action__k{font-size:11px;font-weight:700;letter-spacing:.6px;color:var(--accent);margin-bottom:8px}
+    .decomp-action__v{font-size:14px;line-height:1.7;color:var(--label);white-space:pre-wrap;word-break:break-word}
+
+    /* ---- 注意事项 ---- */
+    .decomp-caveat{background:rgba(180,49,65,.04);border:1px solid rgba(180,49,65,.12);border-radius:16px;padding:13px 15px}
+    .decomp-caveat__head{font-size:12px;font-weight:700;color:var(--accent);margin-bottom:6px}
+    .decomp-caveat__body{font-size:13px;line-height:1.65;color:var(--label2)}
+
+    /* ---- 数据依据 ---- */
+    .decomp-footnote{font-size:11px;line-height:1.6;color:var(--label3);margin:2px 2px 6px;text-align:center}
 
     /* ---- 脚本页：策略 + 分镜 ---- */
     .script-hero{background:linear-gradient(135deg,var(--glass-strong),rgba(255,255,255,.5));border:1px solid var(--stroke);border-radius:22px;padding:18px;margin:12px 0 18px;box-shadow:inset 0 1px 2px rgba(255,255,255,.8),0 12px 30px rgba(90,30,40,.12)}
@@ -1137,8 +1159,8 @@ body{font-family:var(--sf);color:var(--label);display:flex;justify-content:cente
     const sec = $('[data-screen="3"]');
     sec.innerHTML = "";
 
-    sec.appendChild(headerBlock("视频拆解 · 爆点分析",
-      "基于真实视频数据，AI 帮你拆出可复用的创作爆点。"));
+    sec.appendChild(headerBlock("视频拆解报告",
+      "基于真实视频数据，AI 把它拆成可复用的创作要素。"));
 
     // 视频信息卡（拆解对象）
     sec.appendChild(decompHero(video));
@@ -1156,44 +1178,37 @@ body{font-family:var(--sf);color:var(--label);display:flex;justify-content:cente
         const a = d.analysis || {};
         S.analysis = a;   // 保存拆解结果，供脚本生成使用
 
-        const grid = el("div", "decomp-grid");
+        const report = el("div", "decomp-report");
+        let n = 1;
 
-        // 核心洞察：定位 + 钩子 合并为一张卡片，避免细碎
-        const coreBody = [];
-        if (a.positioning) coreBody.push("🎯 " + a.positioning);
-        if (a.hook) coreBody.push("🪝 " + a.hook);
-        if (coreBody.length) {
-          grid.appendChild(decompCard("🎯", "核心洞察", coreBody.join("\n\n"), { delay: 1 }));
+        // 01 核心洞察：定位 + 钩子 合并为一张大引用卡
+        if (a.positioning || a.hook) {
+          report.appendChild(decompInsight(a.positioning, a.hook, n++));
         }
 
-        // 内容结构：用时间线呈现
+        // 02 内容结构：用时间线呈现
         const structure = normalizeList(a.structure);
         if (structure.length) {
-          grid.appendChild(decompCard("🧩", "内容结构", "", { delay: 2, child: decompFlow(structure) }));
+          report.appendChild(decompSection(n++, "内容结构", "视频如何一步步推进", decompFlow(structure)));
         }
 
-        // 可借鉴爆点：标签云/高亮块
+        // 03 可借鉴爆点：2列网格
         const borrowable = normalizeList(a.borrowable);
         if (borrowable.length) {
-          grid.appendChild(decompCard("🔥", "可借鉴的爆点 / 手法", "", { delay: 3, child: decompHighlights(borrowable) }));
+          report.appendChild(decompSection(n++, "可借鉴的爆点 / 手法", "值得复用的创作技巧", decompHighlights(borrowable)));
         }
 
-        // 受众洞察
-        if (a.audience_insight) {
-          grid.appendChild(decompCard("👥", "受众洞察", a.audience_insight, { delay: 4, subtle: true }));
+        // 04 执行建议：受众 + 差异化 双栏
+        if (a.audience_insight || a.your_angle) {
+          report.appendChild(decompActions(a.audience_insight, a.your_angle, n++));
         }
 
-        // 差异化切入点
-        if (a.your_angle) {
-          grid.appendChild(decompCard("💡", "你的复刻 / 差异化切入点", a.your_angle, { delay: 5 }));
-        }
-
-        // 注意事项
+        // 05 注意事项
         if (a.caveats) {
-          grid.appendChild(decompCard("⚠️", "注意事项", a.caveats, { delay: 6, subtle: true }));
+          report.appendChild(decompCaveat(a.caveats, n++));
         }
 
-        sec.appendChild(grid);
+        sec.appendChild(report);
 
         if (a.based_on) {
           sec.appendChild(el("div", "decomp-footnote", "数据依据：" + a.based_on));
@@ -1218,75 +1233,128 @@ body{font-family:var(--sf);color:var(--label);display:flex;justify-content:cente
 
   function decompHero(video) {
     const isBili = video.platform === "bilibili";
-    const wrap = el("div", "decomp-hero reveal");
+    const wrap = el("div", "decomp-hero decomp-sec reveal");
 
     const top = el("div", "decomp-hero__top");
     const cover = el("div", "decomp-hero__cover" + (video.cover ? "" : " noimg"));
     if (video.cover) {
       const img = el("img");
       img.src = video.cover; img.alt = ""; img.loading = "lazy";
-      img.onerror = () => { cover.classList.add("noimg"); cover.innerHTML = isBili ? "📺" : "📹"; };
+      img.onerror = () => { cover.classList.add("noimg"); cover.textContent = isBili ? "▶" : "▶"; };
       cover.appendChild(img);
     } else {
-      cover.textContent = isBili ? "📺" : "📹";
+      cover.textContent = "▶";
     }
     top.appendChild(cover);
 
     const info = el("div", "decomp-hero__info");
-    const badge = el("span", "decomp-hero__badge", (isBili ? "📺 B站视频" : "📹 视频笔记"));
-    info.appendChild(badge);
+    info.appendChild(el("div", "decomp-hero__label", isBili ? "Bilibili" : "视频笔记"));
     info.appendChild(el("div", "decomp-hero__title", video.title || "（无标题）"));
     const meta = el("div", "decomp-hero__meta");
-    meta.innerHTML = "<b>作者</b> " + escapeHtml(video.author || "暂无数据") +
-      (video.publishedAt ? " &nbsp;·&nbsp; " + escapeHtml(video.publishedAt) : "");
+    meta.innerHTML = "<span class='au'>" + escapeHtml(video.author || "暂无数据") + "</span>" +
+      (video.publishedAt ? " · " + escapeHtml(video.publishedAt) : "");
     info.appendChild(meta);
 
-    // 平台统计
     const stats = el("div", "decomp-hero__stats");
     if (isBili) {
       if (video.play != null) stats.appendChild(decompStat("▶", fmtNum(video.play), "播放"));
       if (video.duration) stats.appendChild(decompStat("⏱", video.duration, "时长"));
     } else {
-      if (video.likes != null) stats.appendChild(decompStat("👍", fmtNum(video.likes), "赞"));
-      if (video.collects != null) stats.appendChild(decompStat("⭐", fmtNum(video.collects), "收藏"));
-      if (video.comments != null) stats.appendChild(decompStat("💬", fmtNum(video.comments), "评论"));
+      if (video.likes != null) stats.appendChild(decompStat("赞", fmtNum(video.likes), ""));
+      if (video.collects != null) stats.appendChild(decompStat("收藏", fmtNum(video.collects), ""));
+      if (video.comments != null) stats.appendChild(decompStat("评论", fmtNum(video.comments), ""));
     }
     if (stats.childNodes.length) info.appendChild(stats);
     top.appendChild(info);
     wrap.appendChild(top);
 
     if (video.url) {
+      const bottom = el("div", "decomp-hero__bottom");
+      bottom.appendChild(el("div", "decomp-hero__src", "来源：" + (isBili ? "B站" : "小红书") + " · 点击右侧按钮查看原视频"));
       const link = el("a", "decomp-hero__link");
-      link.innerHTML = ICON_EXT + (isBili ? "在 B站打开原视频" : "查看原笔记");
+      link.innerHTML = ICON_EXT + "查看原视频";
       link.href = video.url; link.target = "_blank"; link.rel = "noopener noreferrer";
-      wrap.appendChild(link);
+      bottom.appendChild(link);
+      wrap.appendChild(bottom);
     }
     return wrap;
   }
 
-  function decompStat(icon, value, label) {
+  function decompStat(label, value, unit) {
     const s = el("span", "decomp-hero__stat");
-    s.innerHTML = "<b>" + icon + "</b> " + escapeHtml(String(value)) + " " + escapeHtml(label);
+    s.innerHTML = "<b>" + escapeHtml(String(value)) + "</b> " + escapeHtml(unit || label);
     return s;
   }
 
-  function decompCard(icon, title, body, opts) {
-    opts = opts || {};
-    const card = el("div", "decomp-card reveal");
-    if (opts.delay) card.style.animationDelay = (opts.delay * 0.08) + "s";
-    const head = el("div", "decomp-card__head");
-    head.appendChild(el("div", "decomp-card__icon", icon));
-    head.appendChild(el("div", "decomp-card__title", title));
-    card.appendChild(head);
+  function decompSection(num, title, sub, child) {
+    const sec = el("div", "decomp-sec reveal");
+    sec.style.animationDelay = (num * 0.06) + "s";
+    const head = el("div", "decomp-sec__head");
+    head.appendChild(el("div", "decomp-sec__num", String(num)));
+    head.appendChild(el("div", "decomp-sec__title", title));
+    if (sub) head.appendChild(el("div", "decomp-sec__sub", sub));
+    sec.appendChild(head);
+    sec.appendChild(child);
+    return sec;
+  }
 
-    if (opts.child) {
-      card.appendChild(opts.child);
-    } else {
-      const b = el("div", "decomp-card__body" + (opts.subtle ? " subtle" : ""));
-      b.textContent = body || "（暂无）";
-      card.appendChild(b);
+  function decompInsight(positioning, hook, num) {
+    const box = el("div", "decomp-insight decomp-sec reveal");
+    box.style.animationDelay = (num * 0.06) + "s";
+    const q = el("div", "decomp-insight__quote", escapeHtml(positioning || hook || ""));
+    box.appendChild(q);
+
+    const cols = el("div", "decomp-insight__cols");
+    if (positioning && hook) {
+      const c1 = el("div", "decomp-insight__col");
+      c1.appendChild(el("div", "k", "一句话定位"));
+      c1.appendChild(el("div", "v", escapeHtml(positioning)));
+      cols.appendChild(c1);
+      const c2 = el("div", "decomp-insight__col");
+      c2.appendChild(el("div", "k", "开头钩子"));
+      c2.appendChild(el("div", "v", escapeHtml(hook)));
+      cols.appendChild(c2);
+    } else if (hook) {
+      const c1 = el("div", "decomp-insight__col");
+      c1.appendChild(el("div", "k", "开头钩子"));
+      c1.appendChild(el("div", "v", escapeHtml(hook)));
+      cols.appendChild(c1);
     }
-    return card;
+    if (cols.childNodes.length) box.appendChild(cols);
+    return box;
+  }
+
+  function decompActions(audience, angle, num) {
+    const box = el("div", "decomp-actions decomp-sec reveal");
+    box.style.animationDelay = (num * 0.06) + "s";
+
+    const head = el("div", "decomp-sec__head");
+    head.appendChild(el("div", "decomp-sec__num", String(num)));
+    head.appendChild(el("div", "decomp-sec__title", "执行建议"));
+    head.appendChild(el("div", "decomp-sec__sub", "面向谁 & 你怎么做"));
+    box.appendChild(head);
+
+    if (audience) {
+      const a = el("div", "decomp-action");
+      a.appendChild(el("div", "decomp-action__k", "目标受众"));
+      a.appendChild(el("div", "decomp-action__v", escapeHtml(audience)));
+      box.appendChild(a);
+    }
+    if (angle) {
+      const a = el("div", "decomp-action");
+      a.appendChild(el("div", "decomp-action__k", "你的复刻 / 差异化切入点"));
+      a.appendChild(el("div", "decomp-action__v", escapeHtml(angle)));
+      box.appendChild(a);
+    }
+    return box;
+  }
+
+  function decompCaveat(text, num) {
+    const box = el("div", "decomp-caveat decomp-sec reveal");
+    box.style.animationDelay = (num * 0.06) + "s";
+    box.appendChild(el("div", "decomp-caveat__head", "注意事项"));
+    box.appendChild(el("div", "decomp-caveat__body", escapeHtml(text)));
+    return box;
   }
 
   function decompFlow(items) {
@@ -1305,7 +1373,7 @@ body{font-family:var(--sf);color:var(--label);display:flex;justify-content:cente
   function decompHighlights(items) {
     const wrap = el("div", "decomp-highlights");
     items.forEach((text) => {
-      const chip = el("span", "decomp-hl");
+      const chip = el("div", "decomp-hl");
       chip.textContent = text;
       wrap.appendChild(chip);
     });
