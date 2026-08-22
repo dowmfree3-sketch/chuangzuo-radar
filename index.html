@@ -873,6 +873,7 @@ body{font-family:var(--sf);color:var(--label);display:flex;justify-content:cente
       const d = await api("/api/understand", { idea, accountContext: accountCtx() });
       S.understanding = d.intent || {};
       S.queries = d.queries || [];
+      S.aiUnavailable = !!d.ai_unavailable;
       hideThinking();
       if (d.need_clarify) { renderClarify(d); }
       else { renderUnderstanding(d); setTimeout(() => proceedToSearch(), 450); }
@@ -898,7 +899,11 @@ body{font-family:var(--sf);color:var(--label);display:flex;justify-content:cente
     if (u.content_goal) metaParts.push("目标：" + u.content_goal);
     if (metaParts.length) card.appendChild(el("div", "ai-understand__meta", metaParts.join("  ·  ")));
     box.appendChild(card);
-    box.appendChild(el("div", "ai-understand__q", "AI 已生成检索关键词，马上去 B站找视频…"));
+    if (S.aiUnavailable) {
+      const warn = el("div", "src-note warn", "⚠️ AI 服务暂时不可用（免费额度已耗尽或限流），已用你输入的原文直接去 B站检索，搜索结果可能没那么精准，但仍可继续拆解。");
+      box.appendChild(warn);
+    }
+    box.appendChild(el("div", "ai-understand__q", S.aiUnavailable ? "正在按原文去 B站找视频…" : "AI 已生成检索关键词，马上去 B站找视频…"));
 
     const nav = el("div", "foot-actions");
     const back = el("button", "btn ghost", "← 换个想法");

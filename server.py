@@ -254,7 +254,17 @@ def handle_understand(data):
     try:
         d = openrouter_json(system, user, expect="object")
     except RuntimeError as e:
-        return {"error": str(e), "code": "ai_unavailable"}
+        # AI 不可用（如免费额度耗尽/限流）：降级为用原始输入作为检索词，
+        # 保证搜索流程仍可继续，前端会提示「AI 离线，已按原词检索」。
+        log("UNDERSTAND DEGRADE", "AI 不可用，使用原始输入检索：%s" % str(e)[:80])
+        return {
+            "intent": {"theme": idea, "scene": "", "audience": "", "content_goal": ""},
+            "queries": [idea],
+            "need_clarify": False,
+            "clarify_question": "",
+            "clarify_options": [],
+            "ai_unavailable": True,
+        }
 
     # 容错：确保关键字段存在
     intent = d.get("intent") or {}
