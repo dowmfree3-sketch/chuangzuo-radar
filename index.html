@@ -593,100 +593,113 @@ body{font-family:var(--sf);color:var(--label);display:flex;justify-content:cente
 
   // 视频拆解页样式（动态注入，避免改动大段 CSS）
   document.head.insertAdjacentHTML("beforeend", `
-    /* ---- 拆解页：色块分区报告 ---- */
+    /* ---- 拆解页：强色块分区报告 ---- */
     .decomp-report{display:grid;grid-template-columns:repeat(2,1fr);gap:18px;align-items:start}
     .decomp-hero{grid-column:1/-1}
-    .decomp-insight{grid-column:1/-1}
-    .decomp-sec{border-radius:24px;padding:20px;animation:rv .55s cubic-bezier(.2,.7,.2,1) both;position:relative;overflow:hidden}
-    .decomp-sec::before{content:"";position:absolute;left:0;top:0;bottom:0;width:5px;border-radius:24px 0 0 24px}
-    @media(max-width:900px){.decomp-report{grid-template-columns:1fr}}
+    .decomp-insight{grid-column:1}
+    .decomp-hook{grid-column:2}
+    .decomp-structure{grid-column:1/-1}
+    .decomp-borrow{grid-column:1/-1}
+    .decomp-actions{grid-column:1}
+    .decomp-caveat{grid-column:2}
+    .decomp-sec{border-radius:26px;padding:22px;animation:rv .55s cubic-bezier(.2,.7,.2,1) both;position:relative;overflow:hidden;box-shadow:inset 0 1px 2px rgba(255,255,255,.85),0 14px 38px rgba(70,25,30,.12)}
+    .decomp-sec::before{content:"";position:absolute;left:0;top:0;bottom:0;width:7px;border-radius:26px 0 0 26px}
+    @media(max-width:900px){.decomp-report{grid-template-columns:1fr}.decomp-insight,.decomp-hook,.decomp-actions,.decomp-caveat{grid-column:1/-1}}
 
-    /* ---- Hero 视频卡：玻璃白 ---- */
-    .decomp-hero{background:rgba(255,250,250,.78);backdrop-filter:blur(26px) saturate(160%);-webkit-backdrop-filter:blur(26px) saturate(160%);border:1px solid var(--stroke);box-shadow:inset 0 1px 2px rgba(255,255,255,.8),0 18px 44px rgba(90,30,40,.14)}
+    /* ---- Hero 视频卡：主accent玻璃 ---- */
+    .decomp-hero{background:linear-gradient(135deg,rgba(255,250,250,.82),rgba(255,240,242,.78));backdrop-filter:blur(26px) saturate(160%);-webkit-backdrop-filter:blur(26px) saturate(160%);border:1px solid var(--stroke)}
     .decomp-hero::before{display:none}
-    .decomp-hero__top{display:flex;gap:16px;align-items:flex-start}
-    .decomp-hero__cover{width:92px;height:92px;border-radius:18px;flex-shrink:0;overflow:hidden;background:linear-gradient(135deg,#FBEEEF,#F2D3D7);display:grid;place-items:center;box-shadow:inset 0 0 0 2px rgba(255,255,255,.7),0 8px 22px rgba(90,30,40,.18)}
+    .decomp-hero__top{display:flex;gap:18px;align-items:flex-start}
+    .decomp-hero__cover{width:120px;height:90px;border-radius:18px;flex-shrink:0;overflow:hidden;background:linear-gradient(135deg,#FBEEEF,#F2D3D7);display:grid;place-items:center;box-shadow:inset 0 0 0 2px rgba(255,255,255,.7),0 8px 22px rgba(90,30,40,.18)}
     .decomp-hero__cover img{width:100%;height:100%;object-fit:cover;display:block}
-    .decomp-hero__cover.noimg{color:#B43141;font-size:41px}
-    .decomp-hero__info{flex:1;min-width:0;display:flex;flex-direction:column;gap:7px;padding-top:2px}
-    .decomp-hero__label{font-size:15px;font-weight:700;color:var(--accent);text-transform:uppercase;letter-spacing:.8px}
-    .decomp-hero__title{font-size:24px;font-weight:700;line-height:1.35;letter-spacing:-.3px;color:var(--label)}
-    .decomp-hero__meta{font-size:17px;color:var(--label2);line-height:1.5}
+    .decomp-hero__cover.noimg{color:#B43141;font-size:43px}
+    .decomp-hero__info{flex:1;min-width:0;display:flex;flex-direction:column;gap:8px;padding-top:2px}
+    .decomp-hero__label{font-size:16px;font-weight:700;color:var(--accent);text-transform:uppercase;letter-spacing:.8px}
+    .decomp-hero__title{font-size:26px;font-weight:700;line-height:1.35;letter-spacing:-.3px;color:var(--label)}
+    .decomp-hero__meta{font-size:18px;color:var(--label2);line-height:1.5}
     .decomp-hero__meta .au{font-weight:600;color:var(--label)}
-    .decomp-hero__stats{display:flex;flex-wrap:wrap;gap:8px;margin-top:3px}
-    .decomp-hero__stat{font-size:16px;font-weight:500;color:var(--label2);background:rgba(255,255,255,.5);border:1px solid var(--stroke);border-radius:999px;padding:4px 10px}
+    .decomp-hero__stats{display:flex;flex-wrap:wrap;gap:8px;margin-top:4px}
+    .decomp-hero__stat{font-size:17px;font-weight:500;color:var(--label2);background:rgba(255,255,255,.55);border:1px solid var(--stroke);border-radius:999px;padding:5px 11px}
     .decomp-hero__stat b{color:var(--accent);font-weight:700;margin-right:3px}
-    .decomp-hero__bottom{display:flex;align-items:center;justify-content:space-between;margin-top:16px;padding-top:14px;border-top:1px solid rgba(255,255,255,.6)}
-    .decomp-hero__src{font-size:15px;color:var(--label3);font-weight:500}
-    .decomp-hero__link{display:inline-block;font-size:17px;font-weight:600;color:#fff;background:linear-gradient(135deg,var(--accent),var(--accent-2));border:none;border-radius:999px;padding:9px 18px;cursor:pointer;text-decoration:none;box-shadow:0 5px 14px rgba(180,49,65,.3);transition:transform .15s}
+    .decomp-hero__bottom{display:flex;align-items:center;justify-content:space-between;margin-top:18px;padding-top:16px;border-top:1px solid rgba(255,255,255,.65)}
+    .decomp-hero__src{font-size:17px;color:var(--label3);font-weight:500}
+    .decomp-hero__link{display:inline-block;font-size:18px;font-weight:600;color:#fff;background:linear-gradient(135deg,var(--accent),var(--accent-2));border:none;border-radius:999px;padding:10px 20px;cursor:pointer;text-decoration:none;box-shadow:0 6px 18px rgba(180,49,65,.32);transition:transform .15s}
     .decomp-hero__link:active{transform:scale(.97)}
 
     /* ---- 通用小节标题 ---- */
-    .decomp-sec__head{display:flex;align-items:center;gap:10px;margin-bottom:14px}
-    .decomp-sec__num{width:28px;height:28px;border-radius:9px;display:grid;place-items:center;font-size:16px;font-weight:800;color:#fff;box-shadow:0 4px 10px rgba(0,0,0,.12);flex-shrink:0}
-    .decomp-sec__title{font-size:22px;font-weight:700;letter-spacing:-.2px;color:var(--label)}
-    .decomp-sec__sub{font-size:16px;color:rgba(37,26,27,.45);margin-left:auto;font-weight:500}
+    .decomp-sec__head{display:flex;align-items:center;gap:11px;margin-bottom:16px}
+    .decomp-sec__icon{width:34px;height:34px;border-radius:12px;display:grid;place-items:center;font-size:21px;background:rgba(255,255,255,.72);border:1px solid rgba(255,255,255,.8);box-shadow:0 4px 12px rgba(0,0,0,.08),inset 0 1px 1px rgba(255,255,255,.9);flex-shrink:0}
+    .decomp-sec__num{width:28px;height:28px;border-radius:9px;display:grid;place-items:center;font-size:16px;font-weight:800;color:#fff;box-shadow:0 4px 10px rgba(0,0,0,.14);flex-shrink:0}
+    .decomp-sec__title{font-size:24px;font-weight:700;letter-spacing:-.3px;color:var(--label)}
+    .decomp-sec__sub{font-size:17px;color:rgba(37,26,27,.45);margin-left:auto;font-weight:500}
+    .decomp-sec__body{background:rgba(255,255,255,.72);backdrop-filter:blur(10px) saturate(140%);-webkit-backdrop-filter:blur(10px) saturate(140%);border:1px solid rgba(255,255,255,.8);border-radius:18px;padding:16px;box-shadow:inset 0 1px 2px rgba(255,255,255,.9),0 4px 14px rgba(0,0,0,.05)}
 
     /* ---- 01 一句话定位：珊瑚粉块 ---- */
-    .decomp-insight{background:linear-gradient(135deg,#FDE8E8 0%,#FCEFF0 100%);border:1px solid rgba(180,49,65,.14)}
-    .decomp-insight::before{background:linear-gradient(180deg,#D15563,#B43141)}
-    .decomp-insight .decomp-sec__num{background:linear-gradient(135deg,#D15563,#B43141)}
-    .decomp-insight .decomp-sec__title{color:#6E1420}
+    .decomp-insight{background:linear-gradient(135deg,#FDD7DA 0%,#FEE9EB 60%,#FFF5F6 100%);border:1px solid rgba(180,49,65,.2)}
+    .decomp-insight::before{background:linear-gradient(180deg,#E06A77,#B43141)}
+    .decomp-insight .decomp-sec__icon{color:#B43141}
+    .decomp-insight .decomp-sec__num{background:linear-gradient(135deg,#E06A77,#B43141)}
+    .decomp-insight .decomp-sec__title{color:#7A1C28}
 
     /* ---- 02 开头钩子：暖黄块 ---- */
-    .decomp-hook{background:linear-gradient(135deg,#FDF6E8 0%,#FEFBEF 100%);border:1px solid rgba(200,150,60,.18)}
-    .decomp-hook::before{background:linear-gradient(180deg,#E6B84D,#C8922D)}
-    .decomp-hook .decomp-sec__num{background:linear-gradient(135deg,#E6B84D,#C8922D)}
-    .decomp-hook .decomp-sec__title{color:#6B4E16}
+    .decomp-hook{background:linear-gradient(135deg,#FDEBC8 0%,#FEF6E2 60%,#FFFBF0 100%);border:1px solid rgba(200,150,60,.24)}
+    .decomp-hook::before{background:linear-gradient(180deg,#F2C158,#D4A030)}
+    .decomp-hook .decomp-sec__icon{color:#9C7118}
+    .decomp-hook .decomp-sec__num{background:linear-gradient(135deg,#F2C158,#D4A030)}
+    .decomp-hook .decomp-sec__title{color:#7A5610}
 
     /* ---- 03 内容结构：淡紫块 ---- */
-    .decomp-structure{background:linear-gradient(135deg,#F0EBF7 0%,#F7F3FB 100%);border:1px solid rgba(139,92,164,.14)}
-    .decomp-structure::before{background:linear-gradient(180deg,#9B7AB8,#7A579C)}
-    .decomp-structure .decomp-sec__num{background:linear-gradient(135deg,#9B7AB8,#7A579C)}
+    .decomp-structure{background:linear-gradient(135deg,#E8DDF5 0%,#F3EDFA 60%,#FAF7FE 100%);border:1px solid rgba(123,90,156,.22)}
+    .decomp-structure::before{background:linear-gradient(180deg,#A883C8,#7A579C)}
+    .decomp-structure .decomp-sec__icon{color:#6A458A}
+    .decomp-structure .decomp-sec__num{background:linear-gradient(135deg,#A883C8,#7A579C)}
     .decomp-structure .decomp-sec__title{color:#5A3D72}
 
     /* ---- 04 可借鉴爆点：薄荷绿块 ---- */
-    .decomp-borrow{background:linear-gradient(135deg,#E8F6F0 0%,#EFFBF5 100%);border:1px solid rgba(46,125,107,.14)}
-    .decomp-borrow::before{background:linear-gradient(180deg,#5CB89A,#2E7D6B)}
-    .decomp-borrow .decomp-sec__num{background:linear-gradient(135deg,#5CB89A,#2E7D6B)}
+    .decomp-borrow{background:linear-gradient(135deg,#D4F2E6 0%,#E9FAF2 60%,#F4FDF9 100%);border:1px solid rgba(46,125,107,.2)}
+    .decomp-borrow::before{background:linear-gradient(180deg,#6AC4A8,#2E7D6B)}
+    .decomp-borrow .decomp-sec__icon{color:#216B5A}
+    .decomp-borrow .decomp-sec__num{background:linear-gradient(135deg,#6AC4A8,#2E7D6B)}
     .decomp-borrow .decomp-sec__title{color:#1E5246}
 
     /* ---- 05 执行建议：淡蓝块 ---- */
-    .decomp-actions{background:linear-gradient(135deg,#E8F1FA 0%,#F0F7FE 100%);border:1px solid rgba(70,130,180,.14)}
-    .decomp-actions::before{background:linear-gradient(180deg,#6FA3D4,#4682B4)}
-    .decomp-actions .decomp-sec__num{background:linear-gradient(135deg,#6FA3D4,#4682B4)}
+    .decomp-actions{background:linear-gradient(135deg,#D6E8F7 0%,#E8F3FC 60%,#F2F9FF 100%);border:1px solid rgba(70,130,180,.2)}
+    .decomp-actions::before{background:linear-gradient(180deg,#7DB1E0,#4682B4)}
+    .decomp-actions .decomp-sec__icon{color:#2F5F8A}
+    .decomp-actions .decomp-sec__num{background:linear-gradient(135deg,#7DB1E0,#4682B4)}
     .decomp-actions .decomp-sec__title{color:#2F5F8A}
-    .decomp-action{background:rgba(255,255,255,.72);border:1px solid rgba(70,130,180,.14);border-radius:18px;padding:16px}
-    .decomp-action__k{font-size:15px;font-weight:700;letter-spacing:.6px;color:#2F5F8A;margin-bottom:8px}
+    .decomp-action{background:rgba(255,255,255,.75);border:1px solid rgba(70,130,180,.14);border-radius:18px;padding:16px;box-shadow:inset 0 1px 2px rgba(255,255,255,.9)}
+    .decomp-action__k{font-size:16px;font-weight:700;letter-spacing:.6px;color:#2F5F8A;margin-bottom:9px}
     .decomp-action__v{font-size:20px;line-height:1.75;color:var(--label);white-space:pre-wrap;word-break:break-word}
 
     /* ---- 06 注意事项：浅灰块 ---- */
-    .decomp-caveat{background:linear-gradient(135deg,#F0F0F2 0%,#F7F7F9 100%);border:1px solid rgba(120,120,130,.14)}
-    .decomp-caveat::before{background:linear-gradient(180deg,#A0A0A8,#787880)}
-    .decomp-caveat .decomp-sec__num{background:linear-gradient(135deg,#A0A0A8,#787880)}
+    .decomp-caveat{background:linear-gradient(135deg,#E8E8EA 0%,#F2F2F4 60%,#FAFAFB 100%);border:1px solid rgba(120,120,130,.18)}
+    .decomp-caveat::before{background:linear-gradient(180deg,#B0B0B8,#787880)}
+    .decomp-caveat .decomp-sec__icon{color:#4A4A52}
+    .decomp-caveat .decomp-sec__num{background:linear-gradient(135deg,#B0B0B8,#787880)}
     .decomp-caveat .decomp-sec__title{color:#4A4A52}
 
     /* ---- 长文本自动拆分为 bullet ---- */
-    .decomp-textlist{list-style:none;display:flex;flex-direction:column;gap:10px;margin:0;padding:0}
-    .decomp-textlist li{position:relative;padding-left:16px;font-size:17px;line-height:1.7;color:var(--label)}
-    .decomp-textlist li::before{content:"";position:absolute;left:0;top:8px;width:6px;height:6px;border-radius:50%;background:currentColor;opacity:.35}
+    .decomp-textlist{list-style:none;display:flex;flex-direction:column;gap:11px;margin:0;padding:0}
+    .decomp-textlist li{position:relative;padding-left:20px;font-size:19px;line-height:1.75;color:var(--label)}
+    .decomp-textlist li::before{content:"";position:absolute;left:0;top:10px;width:8px;height:8px;border-radius:50%;background:currentColor;opacity:.38}
 
     /* ---- 内容结构：时间线 ---- */
-    .decomp-flow{display:flex;flex-direction:column;gap:0;position:relative;padding-left:8px}
-    .decomp-flow::before{content:"";position:absolute;left:20px;top:10px;bottom:20px;width:2px;background:linear-gradient(180deg,rgba(123,90,156,.45),rgba(123,90,156,.1));border-radius:1px}
-    .decomp-flow__item{position:relative;padding:0 0 22px 42px}
+    .decomp-flow{display:flex;flex-direction:column;gap:0;position:relative;padding-left:10px}
+    .decomp-flow::before{content:"";position:absolute;left:23px;top:12px;bottom:24px;width:3px;background:linear-gradient(180deg,rgba(123,90,156,.5),rgba(123,90,156,.12));border-radius:2px}
+    .decomp-flow__item{position:relative;padding:0 0 24px 52px}
     .decomp-flow__item:last-child{padding-bottom:0}
-    .decomp-flow__dot{position:absolute;left:0;top:0;width:28px;height:28px;border-radius:50%;display:grid;place-items:center;font-size:16px;font-weight:800;color:#fff;background:linear-gradient(135deg,#9B7AB8,#7A579C);box-shadow:0 4px 12px rgba(123,90,156,.3),inset 0 1px 1px rgba(255,255,255,.5)}
-    .decomp-flow__text{font-size:20px;line-height:1.7;color:var(--label);padding-top:4px}
+    .decomp-flow__dot{position:absolute;left:0;top:0;width:32px;height:32px;border-radius:50%;display:grid;place-items:center;font-size:16px;font-weight:800;color:#fff;background:linear-gradient(135deg,#A883C8,#7A579C);box-shadow:0 5px 14px rgba(123,90,156,.35),inset 0 1px 1px rgba(255,255,255,.5)}
+    .decomp-flow__text{font-size:20px;line-height:1.75;color:var(--label);padding-top:5px}
     .decomp-flow__text b{font-weight:600}
 
     /* ---- 可借鉴爆点：2列网格 ---- */
-    .decomp-highlights{display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:10px}
-    .decomp-hl{display:flex;align-items:flex-start;gap:9px;font-size:17px;line-height:1.55;color:var(--label);background:rgba(255,255,255,.7);border:1px solid rgba(46,125,107,.12);border-radius:16px;padding:13px;box-shadow:inset 0 1px 1px rgba(255,255,255,.8)}
-    .decomp-hl::before{content:"";width:6px;height:6px;border-radius:50%;background:#2E7D6B;margin-top:6px;flex-shrink:0}
+    .decomp-highlights{display:grid;grid-template-columns:repeat(auto-fill,minmax(240px,1fr));gap:12px}
+    .decomp-hl{display:flex;align-items:flex-start;gap:11px;font-size:18px;line-height:1.6;color:var(--label);background:rgba(255,255,255,.75);border:1px solid rgba(46,125,107,.12);border-radius:18px;padding:15px;box-shadow:inset 0 1px 2px rgba(255,255,255,.9),0 4px 12px rgba(0,0,0,.05)}
+    .decomp-hl::before{content:"✦";width:auto;height:auto;border-radius:0;background:transparent;color:#2E7D6B;font-size:15px;margin-top:1px;flex-shrink:0}
 
     /* ---- 数据依据 ---- */
-    .decomp-footnote{font-size:15px;line-height:1.6;color:var(--label3);margin:2px 2px 6px;text-align:center}
+    .decomp-footnote{font-size:16px;line-height:1.65;color:var(--label3);margin:4px 2px 8px;text-align:center;padding:12px;background:rgba(255,255,255,.45);border-radius:14px;border:1px solid rgba(255,255,255,.6)}
 
     /* ---- 脚本页：策略 + 分镜 ---- */
     .script-hero{background:linear-gradient(135deg,var(--glass-strong),rgba(255,255,255,.5));border:1px solid var(--stroke);border-radius:22px;padding:18px;margin:12px 0 18px;box-shadow:inset 0 1px 2px rgba(255,255,255,.8),0 12px 30px rgba(90,30,40,.12)}
@@ -1226,24 +1239,24 @@ body{font-family:var(--sf);color:var(--label);display:flex;justify-content:cente
 
         // 01 一句话定位
         if (a.positioning) {
-          report.appendChild(decompSection(n++, "一句话定位", "", decompBody(a.positioning, true), "decomp-insight"));
+          report.appendChild(decompSection(n++, "一句话定位", "", decompBody(a.positioning, true), "decomp-insight", "🎯"));
         }
 
         // 02 开头钩子
         if (a.hook) {
-          report.appendChild(decompSection(n++, "开头钩子", "", decompBody(a.hook, true), "decomp-hook"));
+          report.appendChild(decompSection(n++, "开头钩子", "", decompBody(a.hook, true), "decomp-hook", "⚡"));
         }
 
         // 03 内容结构：用时间线呈现
         const structure = normalizeList(a.structure);
         if (structure.length) {
-          report.appendChild(decompSection(n++, "内容结构", "视频如何一步步推进", decompFlow(structure), "decomp-structure"));
+          report.appendChild(decompSection(n++, "内容结构", "视频如何一步步推进", decompFlow(structure), "decomp-structure", "🧩"));
         }
 
         // 04 可借鉴爆点：2列网格
         const borrowable = normalizeList(a.borrowable);
         if (borrowable.length) {
-          report.appendChild(decompSection(n++, "可借鉴的爆点 / 手法", "值得复用的创作技巧", decompHighlights(borrowable), "decomp-borrow"));
+          report.appendChild(decompSection(n++, "可借鉴的爆点 / 手法", "值得复用的创作技巧", decompHighlights(borrowable), "decomp-borrow", "💡"));
         }
 
         // 05 执行建议：受众 + 差异化 双栏
@@ -1362,16 +1375,19 @@ body{font-family:var(--sf);color:var(--label);display:flex;justify-content:cente
     return div;
   }
 
-  function decompSection(num, title, sub, child, className) {
+  function decompSection(num, title, sub, child, className, icon) {
     const cls = "decomp-sec reveal" + (className ? " " + className : "");
     const sec = el("div", cls);
     sec.style.animationDelay = (num * 0.06) + "s";
     const head = el("div", "decomp-sec__head");
+    if (icon) head.appendChild(el("div", "decomp-sec__icon", icon));
     head.appendChild(el("div", "decomp-sec__num", String(num)));
     head.appendChild(el("div", "decomp-sec__title", title));
     if (sub) head.appendChild(el("div", "decomp-sec__sub", sub));
     sec.appendChild(head);
-    sec.appendChild(child);
+    const body = el("div", "decomp-sec__body");
+    body.appendChild(child);
+    sec.appendChild(body);
     return sec;
   }
 
@@ -1380,23 +1396,26 @@ body{font-family:var(--sf);color:var(--label);display:flex;justify-content:cente
     box.style.animationDelay = (num * 0.06) + "s";
 
     const head = el("div", "decomp-sec__head");
+    head.appendChild(el("div", "decomp-sec__icon", "🚀"));
     head.appendChild(el("div", "decomp-sec__num", String(num)));
     head.appendChild(el("div", "decomp-sec__title", "执行建议"));
     head.appendChild(el("div", "decomp-sec__sub", "面向谁 & 你怎么做"));
     box.appendChild(head);
 
+    const body = el("div", "decomp-sec__body");
     if (audience) {
       const a = el("div", "decomp-action");
       a.appendChild(el("div", "decomp-action__k", "目标受众"));
       a.appendChild(decompBody(audience, true, "decomp-action__v"));
-      box.appendChild(a);
+      body.appendChild(a);
     }
     if (angle) {
       const a = el("div", "decomp-action");
       a.appendChild(el("div", "decomp-action__k", "你的复刻 / 差异化切入点"));
       a.appendChild(decompBody(angle, true, "decomp-action__v"));
-      box.appendChild(a);
+      body.appendChild(a);
     }
+    box.appendChild(body);
     return box;
   }
 
@@ -1404,10 +1423,13 @@ body{font-family:var(--sf);color:var(--label);display:flex;justify-content:cente
     const box = el("div", "decomp-caveat decomp-sec reveal");
     box.style.animationDelay = (num * 0.06) + "s";
     const head = el("div", "decomp-sec__head");
+    head.appendChild(el("div", "decomp-sec__icon", "⚠️"));
     head.appendChild(el("div", "decomp-sec__num", String(num)));
     head.appendChild(el("div", "decomp-sec__title", "注意事项"));
     box.appendChild(head);
-    box.appendChild(decompBody(text, true, "decomp-caveat__body"));
+    const body = el("div", "decomp-sec__body");
+    body.appendChild(decompBody(text, true, "decomp-caveat__body"));
+    box.appendChild(body);
     return box;
   }
 
