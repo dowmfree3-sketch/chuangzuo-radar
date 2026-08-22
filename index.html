@@ -368,6 +368,7 @@ body{font-family:var(--sf);color:var(--label);display:flex;justify-content:cente
 .empty-note{font-size:20px;color:var(--label2);text-align:center;padding:30px 10px;line-height:1.6}
 .empty-note b{color:var(--accent)}
 .src-note{font-size:16px;line-height:1.5;color:var(--label2);background:rgba(46,127,107,.08);border:1px solid rgba(46,127,107,.16);border-radius:10px;padding:8px 11px;margin:0 2px 12px}
+.src-note.warn{color:#7A1C28;background:rgba(180,49,65,.1);border-color:rgba(180,49,65,.22);font-weight:500}
 .topic .src{font-size:16px;color:var(--label2);margin:-4px 0 9px;display:flex;align-items:center;gap:5px}
 .topic .src b{color:var(--accent2,#2E7D6B);font-weight:700}
 
@@ -974,10 +975,19 @@ body{font-family:var(--sf);color:var(--label);display:flex;justify-content:cente
         S.videos = (S.rawCandidates || []).slice(0, 5);
         if (S.videos.length) {
           const note = (d.note ? d.note + "\n" : "") + "AI 排序暂时不可用，已按原始搜索结果展示，仍可继续拆解。";
-          renderVideos({ ...d, note }, { error: e.message });
+          renderVideos({ ...d, note, noteClass: "warn" }, { error: e.message });
         } else {
           renderSearchOutcome({ code: "ai_unavailable", error: friendlyError(e.message) });
         }
+        showScreen(2, false);
+        return;
+      }
+      // rank 正常返回但 backend 标记 AI 不可用：同样降级展示原始候选
+      if (rank && rank.code === "ai_unavailable") {
+        S.videos = S.rawCandidates.slice(0, 5);
+        const note = (d.note ? d.note + "\n" : "") + "AI 排序暂时不可用，已按原始搜索结果展示，仍可继续拆解。";
+        hideThinking();
+        renderVideos({ ...d, note, noteClass: "warn" }, rank);
         showScreen(2, false);
         return;
       }
@@ -1149,8 +1159,10 @@ body{font-family:var(--sf);color:var(--label);display:flex;justify-content:cente
 
     if (searchResp.note) {
       // 后端明确返回了提示（如"免费源覆盖有限 / 需登录观看"），优先展示
-      const noteText = searchResp.note.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/\n/g, "<br>");
-      sec.appendChild(el("div", "src-note", noteText));
+      const noteText = escapeHtml(searchResp.note).replace(/\n/g, "<br>");
+      const noteEl = el("div", "src-note" + (searchResp.noteClass ? " " + searchResp.noteClass : ""));
+      noteEl.innerHTML = noteText;
+      sec.appendChild(noteEl);
     } else if (list.length && list.length < 5) {
       sec.appendChild(el("div", "src-note",
         "当前只找到 " + list.length + " 条符合「视频笔记」条件的高相关内容。"));
