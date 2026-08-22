@@ -268,8 +268,9 @@ def handle_understand(data):
     except RuntimeError as e:
         # AI 不可用（如免费额度耗尽/限流）：降级为用原始输入作为检索词，
         # 保证搜索流程仍可继续，前端会提示「AI 离线，已按原词检索」。
+        # 注意：降级结果不进缓存，AI 恢复后应重新走正常理解。
         log("UNDERSTAND DEGRADE", "AI 不可用，使用原始输入检索：%s" % str(e)[:80])
-        res = {
+        return {
             "intent": {"theme": idea, "scene": "", "audience": "", "content_goal": ""},
             "queries": [idea],
             "need_clarify": False,
@@ -277,8 +278,6 @@ def handle_understand(data):
             "clarify_options": [],
             "ai_unavailable": True,
         }
-        _UNDERSTAND_CACHE[cache_key] = (time.time(), res)
-        return res
 
     # 容错：确保关键字段存在
     intent = d.get("intent") or {}
