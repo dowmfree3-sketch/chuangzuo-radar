@@ -227,6 +227,217 @@ def openrouter_json(system_prompt, user_prompt, expect="object", max_tokens=1500
     raise RuntimeError("AI 服务暂时不可用（所有免费模型均失败：%s）" % last_err)
 
 
+def openrouter_chat(messages, tools=None, max_tokens=1500):
+    """通用对话补全（支持 OpenAI 风格 tools/function calling）。
+
+    返回原始 choices[0].message（含可能的 tool_calls）。失败抛 RuntimeError。
+    """
+    if not OPENROUTER_API_KEY:
+        raise RuntimeError("AI 服务尚未配置（缺少 OPENROUTER_API_KEY）")
+    chain = _ai_model_chain()
+    last_err = None
+    for model in chain:
+        for attempt in range(2):
+            try:
+                body = {"model": model, "messages": messages, "temperature": 0.4, "max_tokens": max_tokens}
+                if tools:
+                    body["tools"] = tools
+                    body["tool_choice"] = "auto"
+                headers = {
+                    "Content-Type": "application/json",
+                    "Authorization": "Bearer " + OPENROUTER_API_KEY,
+                    "HTTP-Referer": "https://creation-radar.local",
+                    "X-Title": "CreationRadar",
+                }
+                req = urllib.request.Request(OPENROUTER_URL, data=json.dumps(body).encode("utf-8"),
+                                             headers=headers, method="POST")
+                with urllib.request.urlopen(req, timeout=120) as resp:
+                    data = json.loads(resp.read().decode("utf-8"))
+                return data["choices"][0]["message"]
+            except urllib.error.HTTPError as e:
+                body_err = b""
+                try:
+                    body_err = e.read()
+                except Exception:
+                    pass
+                if "free-models-per-day" in str(body_err) or "Rate limit" in str(body_err):
+                    raise RuntimeError("AI 免费额度已耗尽（每日配额）")
+                last_err = RuntimeError("AI HTTP %s" % e.code)
+                if e.code == 429:
+                    last_err = RuntimeError("AI 限流(429)")
+                time.sleep(3); continue
+            except (urllib.error.URLError, socket.timeout) as e:
+                last_err = RuntimeError("AI 网络错误(%s)" % e.reason)
+                time.sleep(3); continue
+    raise last_err or RuntimeError("AI 服务暂时不可用")
+
+
+# ----------------------------- 智能体（Agent）编排层 -----------------------------
+# 让 LLM 充当"大脑"，自主决定调用哪些工具，串起"理解想法 -> 搜 B站视频 -> 拆解 -> 出脚本"全流程。
+# 工具直接复用本文件的业务函数（handle_search / handle_analyze_video / handle_generate_script）。
+
+AGENT_SYSTEM = (
+    "你是「创作雷达」内容创作智能体。你的任务是帮助用户把一个模糊的创作想法，"
+    "自主完成：① 在 B站搜索相关视频；② 挑选一条最值得参考的视频做拆解（爆点/结构分析）；"
+    "③ 基于拆解生成可执行的短视频脚本与内容策略。\n"
+    "你拥有以下工具，请像真人创作者一样自主判断每一步该调用哪个工具，并在回复里用自然语言"
+    "向用户解释你为什么要这么做（例如：『我先去 B站搜一下「游戏」相关的视频』）。\n"
+    "工作流程建议：先调用 search_bilibili 搜索；拿到结果后挑选一条最相关的视频，"
+    "调用 analyze_video 拆解它；最后调用 generate_script 产出脚本。\n"
+    "如果用户想法太模糊，可以先向用户追问一个关键问题（用普通文字回复，不调工具）。\n"
+    "所有回复用中文，简洁、有「创作者口吻」。不要编造视频数据。"
+)
+
+AGENT_TOOLS = [
+    {
+        "type": "function",
+        "function": {
+            "name": "search_bilibili",
+            "description": "根据关键词在 B站搜索相关视频，返回视频列表（标题、作者、链接、封面等）。当用户给出创作方向/关键词时使用。",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "query": {"type": "string", "description": "检索关键词，例如『游戏』『大学生实习 vlog』"},
+                    "limit": {"type": "integer", "description": "返回条数，默认 6"}
+                },
+                "required": ["query"]
+            }
+        }
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "analyze_video",
+            "description": "对单条视频做拆解分析：一句话定位、开头钩子、内容结构、可借鉴爆点、受众洞察、复刻切入点、注意事项。输入视频的标题/作者/链接/摘要。",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "title": {"type": "string", "description": "视频标题"},
+                    "author": {"type": "string", "description": "作者"},
+                    "url": {"type": "string", "description": "视频链接"},
+                    "description": {"type": "string", "description": "视频公开摘要（可选）"}
+                },
+                "required": ["title"]
+            }
+        }
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "generate_script",
+            "description": "基于某条视频的拆解结论 + 用户创作方向，生成内容策略与可执行短视频脚本（分镜：口播/镜头/剪辑）。",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "title": {"type": "string", "description": "参考视频标题"},
+                    "analysis": {"type": "object", "description": "analyze_video 返回的拆解结论对象"},
+                    "idea": {"type": "string", "description": "用户原始创作想法"}
+                },
+                "required": ["title", "analysis"]
+            }
+        }
+    },
+]
+
+
+def _exec_agent_tool(name, args, ctx):
+    """执行智能体工具，返回 (tool_result_dict, artifact)。artifact 用于前端结构化展示。"""
+    if name == "search_bilibili":
+        q = (args.get("query") or "").strip()
+        if not q:
+            return {"error": "缺少 query"}, None
+        res = handle_search({"queries": [q], "intent": {"theme": q}, "accountContext": ctx.get("accountContext", {})})
+        vids = res.get("results", [])
+        slim = [{"id": v.get("id"), "title": v.get("title"), "author": v.get("author"),
+                 "url": v.get("url"), "cover": v.get("cover")} for v in vids[:8]]
+        return {"code": res.get("code", "ok"), "count": len(slim), "videos": slim,
+                "note": res.get("note", "")}, {"type": "videos", "videos": slim}
+    if name == "analyze_video":
+        res = handle_analyze_video({
+            "video": {"title": args.get("title", ""), "author": args.get("author", ""),
+                      "url": args.get("url", ""), "description": args.get("description", "")},
+            "intent": ctx.get("intent", {}),
+            "accountContext": ctx.get("accountContext", {}),
+            "idea": ctx.get("idea", ""),
+        })
+        if res.get("code") == "ai_unavailable":
+            return {"error": "AI 拆解失败：" + res.get("error", "")}, None
+        return {"analysis": res.get("analysis"), "video": res.get("video")}, \
+               {"type": "analysis", "analysis": res.get("analysis"), "video": res.get("video")}
+    if name == "generate_script":
+        res = handle_generate_script({
+            "video": {"title": args.get("title", "")},
+            "analysis": args.get("analysis", {}),
+            "intent": ctx.get("intent", {}),
+            "accountContext": ctx.get("accountContext", {}),
+            "idea": args.get("idea", ""),
+        })
+        if res.get("code") == "ai_unavailable":
+            return {"error": "AI 脚本生成失败：" + res.get("error", "")}, None
+        return {"content_strategy": res.get("content_strategy"), "script": res.get("script")}, \
+               {"type": "script", "content_strategy": res.get("content_strategy"), "script": res.get("script")}
+    return {"error": "未知工具 " + name}, None
+
+
+def handle_agent_chat(data):
+    """智能体对话入口：让 LLM 自主调工具，返回逐步事件流。
+
+    返回 { events: [...] }。前端按事件类型渲染（思考/工具调用/结果/最终回复）。
+      {"type":"thought","text":"..."}          模型自然语言回复（含决策解释）
+      {"type":"tool","name":"search_bilibili","args":{...}}  即将调用工具
+      {"type":"tool_result","name":...,"result":{...},"artifact":{...}}  工具结果
+      {"type":"error","text":"..."}
+    """
+    if not OPENROUTER_API_KEY:
+        return {"events": [{"type": "error", "text": "AI 服务尚未配置（缺少 OPENROUTER_API_KEY），智能体无法运行。"}], "done": True}
+
+    messages = list(data.get("messages") or [])
+    if not messages:
+        return {"events": [{"type": "error", "text": "缺少对话内容"}], "done": True}
+    if not messages or messages[0].get("role") != "system":
+        messages = [{"role": "system", "content": AGENT_SYSTEM}] + messages
+
+    events = []
+    ctx = {"accountContext": data.get("accountContext") or {}, "idea": data.get("idea") or ""}
+    max_rounds = 6  # 防止无限工具循环
+    for _ in range(max_rounds):
+        try:
+            msg = openrouter_chat(messages, tools=AGENT_TOOLS, max_tokens=1200)
+        except RuntimeError as e:
+            events.append({"type": "error", "text": "AI 调用失败：" + str(e)})
+            break
+        messages.append(msg)
+        tool_calls = msg.get("tool_calls") or []
+        if not tool_calls:
+            content = (msg.get("content") or "").strip()
+            if content:
+                events.append({"type": "thought", "text": content})
+            break
+        for tc in tool_calls:
+            fn = tc.get("function") or {}
+            name = fn.get("name", "")
+            try:
+                args = json.loads(fn.get("arguments") or "{}")
+            except Exception:
+                args = {}
+            events.append({"type": "tool", "name": name, "args": args})
+            result, artifact = _exec_agent_tool(name, args, ctx)
+            events.append({"type": "tool_result", "name": name, "result": result, "artifact": artifact})
+            messages.append({
+                "role": "tool",
+                "tool_call_id": tc.get("id"),
+                "content": json.dumps(result, ensure_ascii=False),
+            })
+            if name == "search_bilibili" and not ctx.get("intent", {}).get("theme"):
+                ctx["intent"] = {"theme": args.get("query", "")}
+            if name == "analyze_video" and not ctx.get("idea"):
+                ctx["idea"] = args.get("title", "")
+    else:
+        events.append({"type": "thought", "text": "（已达到最大步骤数，流程自动结束。你可以继续提问。）"})
+
+    return {"events": events, "done": True}
+
+
 # ----------------------------- 业务逻辑 -----------------------------
 # 理解结果缓存：相同想法不重复消耗 AI 配额（免费层每日仅 50 次，很珍贵）。
 _UNDERSTAND_CACHE = {}
@@ -712,6 +923,8 @@ class Handler(BaseHTTPRequestHandler):
         p = urlparse(self.path).path
         if p in ("/", "/index.html"):
             self._send_html(p)
+        elif p == "/agent.html":
+            self._send_html(p)
         elif p == "/api/ai_status":
             self._send(200, handle_ai_status())
         else:
@@ -741,6 +954,8 @@ class Handler(BaseHTTPRequestHandler):
                 self._send(200, handle_analyze_video(data))
             elif p == "/api/generate-script":
                 self._send(200, handle_generate_script(data))
+            elif p == "/api/agent-chat":
+                self._send(200, handle_agent_chat(data))
             else:
                 self._send(404, {"error": "not found"})
         except Exception as e:
