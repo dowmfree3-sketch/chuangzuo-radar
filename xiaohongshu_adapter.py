@@ -688,9 +688,32 @@ def _bili_strip_title(title):
 
 
 def _bili_duration(sec):
+    """将 B站视频时长规范化为 'm:s' 或 'h:m:s' 字符串。
+    支持两种输入：
+      - 数字（秒）：转为 mm:ss / h:mm:ss
+      - 已经是 'mm:ss' / 'hh:mm:ss' 字符串：原样保留
+    """
+    if sec is None:
+        return ""
+    # 已经是 m:s / h:m:s 形式的字符串（部分 B站接口直接返回这种格式）
+    if isinstance(sec, str):
+        s = sec.strip()
+        if not s:
+            return ""
+        # 仅含数字与冒号，认为已是规范时长
+        if all(c.isdigit() or c == ":" for c in s):
+            # 补齐 mm:ss 格式
+            parts = s.split(":")
+            if len(parts) == 2 and len(parts[0]) == 1:
+                s = "0" + s
+            return s
+        return ""
+    # 数字（秒）→ 转 mm:ss
     try:
         sec = int(sec)
     except (TypeError, ValueError):
+        return ""
+    if sec <= 0:
         return ""
     m, s = divmod(sec, 60)
     if m >= 60:
