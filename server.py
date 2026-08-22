@@ -13,6 +13,7 @@
     POST /api/search-xhs-videos    Query -> 小红书视频检索 + 双重视频过滤
     POST /api/rank-xhs-videos       候选视频 + 用户需求 -> AI 排序筛选 Top5
     POST /api/analyze-video         单条视频笔记 -> AI 视频拆解 / 爆点分析
+    POST /api/generate-script       拆解结果 + 用户意图 -> 内容策略 + 可执行脚本
 
 环境变量：
     OPENROUTER_API_KEY    (必填) OpenRouter Key
@@ -527,6 +528,106 @@ def handle_analyze_video(data):
     return {"analysis": analysis, "video": video, "code": "ok"}
 
 
+def handle_generate_script(data):
+    """基于视频拆解结果 + 用户意图，生成内容策略与可执行视频脚本。
+
+    诚实原则：
+    - 只依据前端传入的真实拆解字段与用户意图进行策略推导；
+    - 严禁编造原始播放量、点赞、评论、作者背景等数据；
+    - 脚本应为参考模板，用户需结合自身真实素材使用。
+    """
+    video = data.get("video") or {}
+    analysis = data.get("analysis") or {}
+    intent = data.get("intent") or {}
+    account_ctx = data.get("accountContext") or {}
+    idea = (data.get("idea") or "").strip()
+
+    title = (video.get("title") or "").strip()
+    if not title:
+        return {"error": "缺少待生成脚本的视频信息", "code": "bad_input"}
+
+    system = (
+        "你是一个短视频内容策略与脚本创作专家。用户已经选中了一条参考视频并完成了拆解，"
+        "现在需要你基于拆解结论和用户自身账号方向，输出一份【内容策略】+【可执行视频脚本】。"
+        "你必须只输出一个 JSON 对象，不要任何解释、不要 markdown 代码块。结构：\n"
+        "{\n"
+        '  "content_strategy": {\n'
+        '    "positioning": "给这条新内容的一句话定位",\n'
+        '    "key_message": "核心要传递的信息/卖点（一句话）",\n'
+        '    "target_audience": "明确的目标受众与他们的痛点/需求",\n'
+        '    "tone": "整体风格调性（如：真诚分享 / 干货紧凑 / 轻松共情 / 高能反转）",\n'
+        '    "format": "建议的视频形式与时长（如：口播 60-90 秒 / vlog 切片 45 秒）",\n'
+        '    "posting_suggestions": ["发布建议1", "发布建议2"]\n'
+        '  },\n'
+        '  "script": {\n'
+        '    "title": "为新脚本取的标题（不要照抄原视频标题，要结合用户想法差异化）",\n'
+        '    "total_time": "建议总时长，如 60-90 秒",\n'
+        '    "scenes": [\n'
+        '      {"no": 1, "stage": "开头钩子", "time": "0-5s", "oral": "口播文案", "shot": "画面/镜头建议", "move": "剪辑/动效建议"},\n'
+        '      {"no": 2, "stage": "主体内容", "time": "5-40s", "oral": "口播文案", "shot": "画面/镜头建议", "move": "剪辑/动效建议"},\n'
+        '      {"no": 3, "stage": "结尾转化", "time": "40-60s", "oral": "口播文案", "shot": "画面/镜头建议", "move": "剪辑/动效建议"}\n'
+        '    ]\n'
+        '  }\n'
+        "}\n"
+        "硬性规则：\n"
+        "- 必须基于参考视频拆解结论进行创作，但不要照搬原视频；要结合用户的账号方向做差异化。\n"
+        "- 口播文案要口语化、自然，适合短视频口播，避免书面化长句。\n"
+        "- 每个 scene 必须包含 no / stage / time / oral / shot / move 六个字段。\n"
+        "- 不要编造原视频没有的播放量、点赞、评论、作者背景等数据。\n"
+        "- 所有内容用中文。"
+    )
+    user = (
+        "用户账号方向：%s\n用户原始想法：%s\n意图理解：%s\n"
+        "参考视频标题：%s\n"
+        "拆解结论：%s"
+        % (
+            account_ctx.get("account") or "未指定",
+            idea or "（未提供）",
+            json.dumps(intent, ensure_ascii=False),
+            title,
+            json.dumps(analysis, ensure_ascii=False),
+        )
+    )
+    try:
+        d = openrouter_json(system, user, expect="object", max_tokens=2500)
+    except RuntimeError as e:
+        return {"error": str(e), "code": "ai_unavailable"}
+
+    strategy = d.get("content_strategy") or {}
+    script = d.get("script") or {}
+    # 确保 scenes 字段完整
+    scenes = script.get("scenes") or []
+    cleaned_scenes = []
+    for s in scenes:
+        if isinstance(s, dict):
+            cleaned_scenes.append({
+                "no": s.get("no") or (len(cleaned_scenes) + 1),
+                "stage": s.get("stage") or "",
+                "time": s.get("time") or "",
+                "oral": s.get("oral") or "",
+                "shot": s.get("shot") or "",
+                "move": s.get("move") or "",
+            })
+    script["scenes"] = cleaned_scenes
+
+    return {
+        "content_strategy": {
+            "positioning": strategy.get("positioning") or "",
+            "key_message": strategy.get("key_message") or "",
+            "target_audience": strategy.get("target_audience") or "",
+            "tone": strategy.get("tone") or "",
+            "format": strategy.get("format") or "",
+            "posting_suggestions": strategy.get("posting_suggestions") or [],
+        },
+        "script": {
+            "title": script.get("title") or (title + " 复刻版"),
+            "total_time": script.get("total_time") or "60-90 秒",
+            "scenes": cleaned_scenes,
+        },
+        "code": "ok",
+    }
+
+
 def handle_ai_status():
     return {
         "online": bool(OPENROUTER_API_KEY),
@@ -609,6 +710,8 @@ class Handler(BaseHTTPRequestHandler):
                 self._send(200, handle_rank(data))
             elif p == "/api/analyze-video":
                 self._send(200, handle_analyze_video(data))
+            elif p == "/api/generate-script":
+                self._send(200, handle_generate_script(data))
             else:
                 self._send(404, {"error": "not found"})
         except Exception as e:
