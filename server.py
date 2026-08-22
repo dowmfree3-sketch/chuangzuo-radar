@@ -214,6 +214,10 @@ def openrouter_json(system_prompt, user_prompt, expect="object", max_tokens=1500
             except RuntimeError as e:
                 last_err = e
                 msg = str(e)
+                # 免费层每日总配额耗尽：所有 free 模型共享，重试/换模型都没用，
+                # 直接失败，让上层尽快走降级逻辑（避免无谓地烧掉重试次数）。
+                if "free-models-per-day" in msg or "Rate limit" in msg:
+                    raise RuntimeError("AI 免费额度已耗尽（每日配额）")
                 # 限流 / 5xx / 网络 / 超时：短暂等待后重试同一模型
                 if "429" in msg or msg.startswith("AI HTTP 5") or "网络" in msg or "超时" in msg:
                     time.sleep(3)
